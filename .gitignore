@@ -27,6 +27,7 @@ yarn-error.log
 /.vscode
 /.zed
 /agents
+/docs
 .agents
 .claude
 CLAUDE.md
