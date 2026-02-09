@@ -21,7 +21,6 @@ class TicketFactory extends Factory
     public function definition(): array
     {
         return [
-            'numero' => fn () => 'INC-'.date('Y').'-'.str_pad(fake()->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
             'titulo' => fake()->sentence(6),
             'descripcion' => fake()->paragraph(3),
             'solicitante_id' => User::factory()->solicitante(),

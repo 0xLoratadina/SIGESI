@@ -32,6 +32,34 @@ export type Prioridad = {
     activo: boolean;
 };
 
+export type Ubicacion = {
+    id: number;
+    nombre: string;
+    edificio: string | null;
+    piso: string | null;
+    salon: string | null;
+    descripcion: string | null;
+    departamento_id: number | null;
+    activo: boolean;
+};
+
+export type CatalogosDashboard = {
+    departamentos: Pick<Departamento, 'id' | 'nombre'>[];
+    categorias: Pick<Categoria, 'id' | 'nombre' | 'padre_id'>[];
+    prioridades: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel'>[];
+    ubicaciones: Pick<Ubicacion, 'id' | 'nombre' | 'edificio' | 'piso' | 'departamento_id'>[];
+    canales: Canal[];
+    usuarios: { id: number; name: string; email: string }[];
+};
+
+export type CategoriaConPadre = Categoria & {
+    padre?: Pick<Categoria, 'id' | 'nombre'> | null;
+};
+
+export type UbicacionConDepto = Ubicacion & {
+    departamento?: Pick<Departamento, 'id' | 'nombre'> | null;
+};
+
 export type Ticket = {
     id: number;
     numero: string;

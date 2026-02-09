@@ -2,9 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Enums\Rol;
+use App\Models\Categoria;
+use App\Models\Departamento;
+use App\Models\Prioridad;
 use App\Models\Ticket;
+use App\Models\Ubicacion;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -59,6 +65,16 @@ class DashboardController extends Controller
             'tickets' => $tickets,
             'filtroEstado' => $filtroEstado,
             'estados' => array_column(EstadoTicket::cases(), 'value'),
+            'catalogos' => Inertia::defer(fn () => [
+                'departamentos' => Departamento::query()->where('activo', true)->select('id', 'nombre')->orderBy('nombre')->get(),
+                'categorias' => Categoria::query()->where('activo', true)->select('id', 'nombre', 'padre_id')->orderBy('nombre')->get(),
+                'prioridades' => Prioridad::query()->where('activo', true)->select('id', 'nombre', 'color', 'nivel')->orderBy('nivel')->get(),
+                'ubicaciones' => Ubicacion::query()->where('activo', true)->select('id', 'nombre', 'edificio', 'piso', 'departamento_id')->orderBy('nombre')->get(),
+                'canales' => array_column(Canal::cases(), 'value'),
+                'usuarios' => $usuario->esAdmin()
+                    ? User::query()->where('activo', true)->select('id', 'name', 'email')->orderBy('name')->get()
+                    : [],
+            ]),
         ]);
     }
 }

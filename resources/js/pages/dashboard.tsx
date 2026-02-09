@@ -1,19 +1,21 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock, TicketCheck, Inbox } from 'lucide-react';
+import ModalCrearTicket from '@/components/modal-crear-ticket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { obtenerClaseEstado, obtenerEtiquetaEstado, formatearFecha, formatearFechaCorta } from '@/lib/ticket-helpers';
 import { dashboard } from '@/routes';
-import type { BreadcrumbItem, DatosPaginados, Estadisticas, EstadoTicket, Ticket } from '@/types';
+import type { BreadcrumbItem, CatalogosDashboard, DatosPaginados, Estadisticas, EstadoTicket, Ticket } from '@/types';
 
 type Props = {
     estadisticas: Estadisticas;
     tickets: DatosPaginados<Ticket>;
     filtroEstado: string | null;
     estados: EstadoTicket[];
+    catalogos?: CatalogosDashboard;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -34,7 +36,7 @@ function useEsMovil() {
     return esMovil;
 }
 
-export default function Dashboard({ estadisticas, tickets, filtroEstado, estados }: Props) {
+export default function Dashboard({ estadisticas, tickets, filtroEstado, estados, catalogos }: Props) {
     const esMovil = useEsMovil();
 
     const manejarFiltroEstado = (valor: string) => {
@@ -88,19 +90,22 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
                 <Card className="flex flex-col md:min-h-0 md:flex-1">
                     <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 pb-4">
                         <CardTitle className="text-base font-medium">Tickets recientes</CardTitle>
-                        <Select value={filtroEstado ?? 'todos'} onValueChange={manejarFiltroEstado}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Filtrar por estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="todos">Todos</SelectItem>
-                                {estados.map((estado) => (
-                                    <SelectItem key={estado} value={estado}>
-                                        {obtenerEtiquetaEstado(estado)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                            <ModalCrearTicket catalogos={catalogos} />
+                            <Select value={filtroEstado ?? 'todos'} onValueChange={manejarFiltroEstado}>
+                                <SelectTrigger className="w-[140px] sm:w-[180px]">
+                                    <SelectValue placeholder="Filtrar por estado" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="todos">Todos</SelectItem>
+                                    {estados.map((estado) => (
+                                        <SelectItem key={estado} value={estado}>
+                                            {obtenerEtiquetaEstado(estado)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </CardHeader>
                     <CardContent className="flex flex-col md:min-h-0 md:flex-1">
                         {tickets.data.length > 0 ? (

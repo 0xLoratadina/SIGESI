@@ -36,6 +36,26 @@ class Ticket extends Model
         'fecha_limite',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Ticket $ticket) {
+            if (empty($ticket->numero)) {
+                $ticket->numero = self::generarNumero();
+            }
+        });
+    }
+
+    public static function generarNumero(): string
+    {
+        $ultimo = static::query()
+            ->orderByRaw('CAST(SUBSTR(numero, 4) AS INTEGER) DESC')
+            ->value('numero');
+
+        $secuencial = $ultimo ? (int) substr($ultimo, 3) + 1 : 1;
+
+        return 'TK-'.str_pad($secuencial, 4, '0', STR_PAD_LEFT);
+    }
+
     protected function casts(): array
     {
         return [
