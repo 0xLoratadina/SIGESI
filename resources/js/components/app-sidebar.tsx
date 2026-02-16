@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Settings2 } from 'lucide-react';
+import { LayoutGrid, Settings2, Users } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -12,7 +12,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { catalogos } from '@/routes/admin';
+import { catalogos, usuarios } from '@/routes/admin';
 import type { NavItem, SharedData } from '@/types';
 import AppLogo from './app-logo';
 
@@ -29,6 +29,11 @@ const elementosAdmin: NavItem[] = [
         title: 'Catálogos',
         href: catalogos(),
         icon: Settings2,
+    },
+    {
+        title: 'Usuarios',
+        href: usuarios(),
+        icon: Users,
     },
 ];
 

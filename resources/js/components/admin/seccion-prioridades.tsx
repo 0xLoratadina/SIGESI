@@ -2,6 +2,7 @@ import { Form, router } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/PrioridadController';
+import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,6 +19,7 @@ type Props = {
 export default function SeccionPrioridades({ prioridades }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Prioridad | null>(null);
+    const [eliminando, setEliminando] = useState<Prioridad | null>(null);
 
     function abrirEdicion(pri: Prioridad) {
         setEditando(pri);
@@ -29,10 +31,12 @@ export default function SeccionPrioridades({ prioridades }: Props) {
         setEditando(null);
     }
 
-    function eliminar(pri: Prioridad) {
-        if (confirm(`¿Eliminar la prioridad "${pri.nombre}"?`)) {
-            router.delete(destroy.url(pri.id));
-        }
+    function confirmarEliminar() {
+        if (!eliminando) return;
+        router.delete(destroy.url(eliminando.id), {
+            preserveScroll: true,
+            onSuccess: () => setEliminando(null),
+        });
     }
 
     return (
@@ -169,7 +173,7 @@ export default function SeccionPrioridades({ prioridades }: Props) {
                                             <Button size="icon" variant="ghost" onClick={() => abrirEdicion(pri)} title="Editar">
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" onClick={() => eliminar(pri)} title="Eliminar">
+                                            <Button size="icon" variant="ghost" onClick={() => setEliminando(pri)} title="Eliminar">
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </div>
@@ -180,6 +184,16 @@ export default function SeccionPrioridades({ prioridades }: Props) {
                     </Table>
                 </div>
             )}
+
+            <DialogoConfirmacion
+                abierto={!!eliminando}
+                onCerrar={() => setEliminando(null)}
+                onConfirmar={confirmarEliminar}
+                titulo="Eliminar prioridad"
+                descripcion={`¿Estás seguro de que deseas eliminar la prioridad "${eliminando?.nombre}"? Esta acción no se puede deshacer.`}
+                textoConfirmar="Eliminar"
+                variante="destructiva"
+            />
         </div>
     );
 }

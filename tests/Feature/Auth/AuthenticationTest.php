@@ -70,6 +70,30 @@ test('users can logout', function () {
     $response->assertRedirect(route('home'));
 });
 
+test('admin es redirigido a dashboard despues de login', function () {
+    $user = User::factory()->administrador()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('dashboard', absolute: false));
+});
+
+test('solicitante sin onboarding es redirigido a onboarding despues de login', function () {
+    $user = User::factory()->solicitante()->sinOnboarding()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('onboarding.index', absolute: false));
+});
+
 test('users are rate limited', function () {
     $user = User::factory()->create();
 

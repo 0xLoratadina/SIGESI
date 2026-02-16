@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\EsAdmin::class,
+            'onboarding' => \App\Http\Middleware\RequiereOnboarding::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

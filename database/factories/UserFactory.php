@@ -36,6 +36,9 @@ class UserFactory extends Factory
             'activo' => true,
             'disponible' => true,
             'max_tickets' => 10,
+            'onboarding_completado' => true,
+            'debe_cambiar_password' => false,
+            'fecha_onboarding' => now(),
         ];
     }
 
@@ -82,6 +85,15 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'activo' => false,
+        ]);
+    }
+
+    public function sinOnboarding(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'onboarding_completado' => false,
+            'debe_cambiar_password' => true,
+            'fecha_onboarding' => null,
         ]);
     }
 }

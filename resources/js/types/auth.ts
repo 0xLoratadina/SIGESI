@@ -9,12 +9,16 @@ export type User = {
     two_factor_enabled?: boolean;
     rol: Rol;
     departamento_id: number | null;
+    ubicacion_id: number | null;
     telefono: string | null;
     num_empleado: string | null;
     cargo: string | null;
     activo: boolean;
     disponible: boolean;
     max_tickets: number;
+    debe_cambiar_password: boolean;
+    onboarding_completado: boolean;
+    fecha_onboarding: string | null;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;

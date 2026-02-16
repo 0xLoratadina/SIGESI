@@ -25,12 +25,16 @@ class User extends Authenticatable
         'password',
         'rol',
         'departamento_id',
+        'ubicacion_id',
         'telefono',
         'num_empleado',
         'cargo',
         'activo',
         'disponible',
         'max_tickets',
+        'debe_cambiar_password',
+        'onboarding_completado',
+        'fecha_onboarding',
     ];
 
     /**
@@ -56,6 +60,9 @@ class User extends Authenticatable
             'activo' => 'boolean',
             'disponible' => 'boolean',
             'max_tickets' => 'integer',
+            'debe_cambiar_password' => 'boolean',
+            'onboarding_completado' => 'boolean',
+            'fecha_onboarding' => 'datetime',
         ];
     }
 
@@ -76,11 +83,21 @@ class User extends Authenticatable
         return $this->rol === Rol::Solicitante;
     }
 
+    public function requiereOnboarding(): bool
+    {
+        return $this->esSolicitante() && ! $this->onboarding_completado;
+    }
+
     // ── Relaciones ──────────────────────────────────────────
 
     public function departamento(): BelongsTo
     {
         return $this->belongsTo(Departamento::class);
+    }
+
+    public function ubicacion(): BelongsTo
+    {
+        return $this->belongsTo(Ubicacion::class);
     }
 
     public function ticketsSolicitados(): HasMany

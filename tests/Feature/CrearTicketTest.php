@@ -2,26 +2,63 @@
 
 use App\Enums\Canal;
 use App\Enums\EstadoTicket;
+use App\Models\Adjunto;
 use App\Models\Categoria;
 use App\Models\Departamento;
 use App\Models\Prioridad;
 use App\Models\Ticket;
 use App\Models\Ubicacion;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 test('invitados no pueden crear tickets', function () {
     $this->post(route('tickets.store'))->assertRedirect(route('login'));
 });
 
-test('validacion rechaza datos incompletos', function () {
-    $this->actingAs(User::factory()->create());
+test('validacion rechaza datos incompletos para tecnico', function () {
+    $this->actingAs(User::factory()->tecnico()->create());
 
     $this->post(route('tickets.store'), [])
         ->assertSessionHasErrors(['titulo', 'descripcion', 'departamento_id', 'categoria_id', 'prioridad_id']);
 });
 
+test('solicitante solo requiere titulo y descripcion', function () {
+    $departamento = Departamento::factory()->create();
+    Categoria::factory()->create();
+    Prioridad::factory()->create();
+    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+
+    $this->actingAs($usuario);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Mi problema',
+        'descripcion' => 'Descripcion detallada de al menos diez caracteres',
+    ])->assertRedirect(route('dashboard'));
+});
+
+test('solicitante recibe valores por defecto para departamento categoria y prioridad', function () {
+    $departamento = Departamento::factory()->create();
+    $categoria = Categoria::factory()->create();
+    $prioridad = Prioridad::factory()->create();
+    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+
+    $this->actingAs($usuario);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Ticket simplificado',
+        'descripcion' => 'Solo titulo y descripcion sin campos tecnicos',
+    ])->assertRedirect(route('dashboard'));
+
+    $ticket = Ticket::first();
+    expect($ticket)
+        ->departamento_id->toBe($departamento->id)
+        ->categoria_id->toBe($categoria->id)
+        ->prioridad_id->toBe($prioridad->id);
+});
+
 test('titulo no puede exceder 255 caracteres', function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->tecnico()->create());
 
     $this->post(route('tickets.store'), [
         'titulo' => str_repeat('a', 256),
@@ -33,7 +70,7 @@ test('titulo no puede exceder 255 caracteres', function () {
 });
 
 test('descripcion debe tener al menos 10 caracteres', function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->tecnico()->create());
 
     $this->post(route('tickets.store'), [
         'titulo' => 'Titulo valido',
@@ -45,20 +82,16 @@ test('descripcion debe tener al menos 10 caracteres', function () {
 });
 
 test('solicitante puede crear un ticket', function () {
-    $usuario = User::factory()->solicitante()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
+    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
 
     $this->actingAs($usuario);
 
     $this->post(route('tickets.store'), [
         'titulo' => 'No tengo internet',
         'descripcion' => 'No puedo conectarme a la red desde mi oficina desde esta manana',
-        'departamento_id' => $departamento->id,
-        'categoria_id' => $categoria->id,
-        'prioridad_id' => $prioridad->id,
-        'canal' => Canal::Web->value,
     ])->assertRedirect(route('dashboard'));
 
     $ticket = Ticket::first();
@@ -117,20 +150,17 @@ test('admin puede crear ticket para otro usuario', function () {
 });
 
 test('solicitante no puede asignar otro usuario como solicitante', function () {
-    $solicitante = User::factory()->solicitante()->create();
-    $otroUsuario = User::factory()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
+    $solicitante = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $otroUsuario = User::factory()->create();
 
     $this->actingAs($solicitante);
 
     $this->post(route('tickets.store'), [
         'titulo' => 'Mi problema',
         'descripcion' => 'Descripcion detallada del problema que estoy teniendo',
-        'departamento_id' => $departamento->id,
-        'categoria_id' => $categoria->id,
-        'prioridad_id' => $prioridad->id,
         'solicitante_id' => $otroUsuario->id,
     ])->assertRedirect(route('dashboard'));
 
@@ -138,7 +168,7 @@ test('solicitante no puede asignar otro usuario como solicitante', function () {
 });
 
 test('numero de ticket se genera automaticamente', function () {
-    $usuario = User::factory()->create();
+    $usuario = User::factory()->tecnico()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
@@ -167,7 +197,7 @@ test('numero de ticket se genera automaticamente', function () {
 });
 
 test('ticket se puede crear con ubicacion', function () {
-    $usuario = User::factory()->create();
+    $usuario = User::factory()->tecnico()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
@@ -188,7 +218,7 @@ test('ticket se puede crear con ubicacion', function () {
 });
 
 test('canal por defecto es Web si no se especifica', function () {
-    $usuario = User::factory()->create();
+    $usuario = User::factory()->tecnico()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
@@ -207,7 +237,7 @@ test('canal por defecto es Web si no se especifica', function () {
 });
 
 test('fecha limite se calcula automaticamente de la prioridad', function () {
-    $usuario = User::factory()->create();
+    $usuario = User::factory()->tecnico()->create();
     $departamento = Departamento::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create(['horas_resolucion' => 24]);
@@ -223,4 +253,60 @@ test('fecha limite se calcula automaticamente de la prioridad', function () {
     ]);
 
     expect(Ticket::first()->fecha_limite)->not->toBeNull();
+});
+
+test('solicitante puede adjuntar archivos al crear ticket', function () {
+    Storage::fake('local');
+
+    $departamento = Departamento::factory()->create();
+    $categoria = Categoria::factory()->create();
+    $prioridad = Prioridad::factory()->create();
+    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+
+    $this->actingAs($usuario);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Problema con evidencia',
+        'descripcion' => 'Adjunto captura de pantalla del error que aparece',
+        'adjuntos' => [
+            UploadedFile::fake()->image('error.png'),
+            UploadedFile::fake()->create('documento.pdf', 500),
+        ],
+    ])->assertRedirect(route('dashboard'));
+
+    $ticket = Ticket::first();
+    expect(Adjunto::where('ticket_id', $ticket->id)->count())->toBe(2);
+});
+
+test('se rechaza mas de 5 adjuntos por ticket', function () {
+    $usuario = User::factory()->solicitante()->create();
+
+    $this->actingAs($usuario);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Demasiados archivos',
+        'descripcion' => 'Intento adjuntar mas de 5 archivos al mismo tiempo',
+        'adjuntos' => [
+            UploadedFile::fake()->image('1.png'),
+            UploadedFile::fake()->image('2.png'),
+            UploadedFile::fake()->image('3.png'),
+            UploadedFile::fake()->image('4.png'),
+            UploadedFile::fake()->image('5.png'),
+            UploadedFile::fake()->image('6.png'),
+        ],
+    ])->assertSessionHasErrors('adjuntos');
+});
+
+test('se rechaza tipo de archivo no permitido', function () {
+    $usuario = User::factory()->solicitante()->create();
+
+    $this->actingAs($usuario);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Archivo no permitido',
+        'descripcion' => 'Intento adjuntar un archivo ejecutable malicioso',
+        'adjuntos' => [
+            UploadedFile::fake()->create('script.exe', 100),
+        ],
+    ])->assertSessionHasErrors('adjuntos.0');
 });

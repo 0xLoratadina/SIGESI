@@ -28,6 +28,7 @@ class CreateNewUser implements CreatesNewUsers
             'email' => $input['email'],
             'password' => $input['password'],
             'rol' => Rol::Solicitante,
+            'onboarding_completado' => false,
         ]);
     }
 }

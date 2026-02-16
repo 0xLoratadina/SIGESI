@@ -2,6 +2,7 @@ import { Form, router } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/CategoriaController';
+import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -20,6 +21,7 @@ type Props = {
 export default function SeccionCategorias({ categorias }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<CategoriaConPadre | null>(null);
+    const [eliminando, setEliminando] = useState<CategoriaConPadre | null>(null);
 
     const padres = categorias.filter((c) => !c.padre_id);
 
@@ -33,10 +35,12 @@ export default function SeccionCategorias({ categorias }: Props) {
         setEditando(null);
     }
 
-    function eliminar(cat: CategoriaConPadre) {
-        if (confirm(`¿Eliminar la categoría "${cat.nombre}"?`)) {
-            router.delete(destroy.url(cat.id));
-        }
+    function confirmarEliminar() {
+        if (!eliminando) return;
+        router.delete(destroy.url(eliminando.id), {
+            preserveScroll: true,
+            onSuccess: () => setEliminando(null),
+        });
     }
 
     return (
@@ -150,7 +154,7 @@ export default function SeccionCategorias({ categorias }: Props) {
                                             <Button size="icon" variant="ghost" onClick={() => abrirEdicion(cat)} title="Editar">
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" onClick={() => eliminar(cat)} title="Eliminar">
+                                            <Button size="icon" variant="ghost" onClick={() => setEliminando(cat)} title="Eliminar">
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </div>
@@ -161,6 +165,16 @@ export default function SeccionCategorias({ categorias }: Props) {
                     </Table>
                 </div>
             )}
+
+            <DialogoConfirmacion
+                abierto={!!eliminando}
+                onCerrar={() => setEliminando(null)}
+                onConfirmar={confirmarEliminar}
+                titulo="Eliminar categoría"
+                descripcion={`¿Estás seguro de que deseas eliminar la categoría "${eliminando?.nombre}"? Esta acción no se puede deshacer.`}
+                textoConfirmar="Eliminar"
+                variante="destructiva"
+            />
         </div>
     );
 }

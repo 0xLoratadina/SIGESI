@@ -18,15 +18,22 @@ class CrearTicketRequest extends FormRequest
      */
     public function rules(): array
     {
+        $esSolicitante = $this->user()->esSolicitante();
+
         $reglas = [
             'titulo' => ['required', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'min:10'],
-            'departamento_id' => ['required', 'integer', 'exists:departamentos,id'],
-            'categoria_id' => ['required', 'integer', 'exists:categorias,id'],
-            'prioridad_id' => ['required', 'integer', 'exists:prioridades,id'],
-            'ubicacion_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
-            'canal' => ['nullable', Rule::enum(Canal::class)],
+            'adjuntos' => ['nullable', 'array', 'max:5'],
+            'adjuntos.*' => ['file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,mp4,mov'],
         ];
+
+        if (! $esSolicitante) {
+            $reglas['departamento_id'] = ['required', 'integer', 'exists:departamentos,id'];
+            $reglas['categoria_id'] = ['required', 'integer', 'exists:categorias,id'];
+            $reglas['prioridad_id'] = ['required', 'integer', 'exists:prioridades,id'];
+            $reglas['ubicacion_id'] = ['nullable', 'integer', 'exists:ubicaciones,id'];
+            $reglas['canal'] = ['nullable', Rule::enum(Canal::class)];
+        }
 
         if ($this->user()->esAdmin()) {
             $reglas['solicitante_id'] = ['required', 'integer', 'exists:users,id'];
@@ -54,6 +61,9 @@ class CrearTicketRequest extends FormRequest
             'ubicacion_id.exists' => 'La ubicación seleccionada no es válida.',
             'solicitante_id.required' => 'El solicitante es obligatorio.',
             'solicitante_id.exists' => 'El solicitante seleccionado no es válido.',
+            'adjuntos.max' => 'Máximo 5 archivos por ticket.',
+            'adjuntos.*.max' => 'Cada archivo no debe exceder 10 MB.',
+            'adjuntos.*.mimes' => 'Tipo de archivo no permitido.',
         ];
     }
 }

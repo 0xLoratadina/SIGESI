@@ -2,6 +2,7 @@ import { Form, router } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/DepartamentoController';
+import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -18,6 +19,7 @@ type Props = {
 export default function SeccionDepartamentos({ departamentos }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Departamento | null>(null);
+    const [eliminando, setEliminando] = useState<Departamento | null>(null);
 
     function abrirEdicion(depto: Departamento) {
         setEditando(depto);
@@ -29,10 +31,12 @@ export default function SeccionDepartamentos({ departamentos }: Props) {
         setEditando(null);
     }
 
-    function eliminar(depto: Departamento) {
-        if (confirm(`¿Eliminar el departamento "${depto.nombre}"?`)) {
-            router.delete(destroy.url(depto.id));
-        }
+    function confirmarEliminar() {
+        if (!eliminando) return;
+        router.delete(destroy.url(eliminando.id), {
+            preserveScroll: true,
+            onSuccess: () => setEliminando(null),
+        });
     }
 
     return (
@@ -140,7 +144,7 @@ export default function SeccionDepartamentos({ departamentos }: Props) {
                                             <Button size="icon" variant="ghost" onClick={() => abrirEdicion(depto)} title="Editar">
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button size="icon" variant="ghost" onClick={() => eliminar(depto)} title="Eliminar">
+                                            <Button size="icon" variant="ghost" onClick={() => setEliminando(depto)} title="Eliminar">
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </div>
@@ -151,6 +155,16 @@ export default function SeccionDepartamentos({ departamentos }: Props) {
                     </Table>
                 </div>
             )}
+
+            <DialogoConfirmacion
+                abierto={!!eliminando}
+                onCerrar={() => setEliminando(null)}
+                onConfirmar={confirmarEliminar}
+                titulo="Eliminar departamento"
+                descripcion={`¿Estás seguro de que deseas eliminar el departamento "${eliminando?.nombre}"? Esta acción no se puede deshacer.`}
+                textoConfirmar="Eliminar"
+                variante="destructiva"
+            />
         </div>
     );
 }

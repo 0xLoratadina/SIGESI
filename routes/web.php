@@ -5,24 +5,34 @@ use App\Http\Controllers\Admin\CategoriaController;
 use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\PrioridadController;
 use App\Http\Controllers\Admin\UbicacionController;
+use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\TicketController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
-use Laravel\Fortify\Features;
 
 Route::get('/', function () {
-    return Inertia::render('welcome', [
-        'canRegister' => Features::enabled(Features::registration()),
-    ]);
+    if (Auth::check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return redirect()->route('login');
 })->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+// Onboarding (auth, sin verified ni onboarding)
+Route::middleware(['auth'])->prefix('onboarding')->group(function () {
+    Route::get('/', [OnboardingController::class, 'index'])->name('onboarding.index');
+    Route::put('password', [OnboardingController::class, 'cambiarPassword'])->name('onboarding.cambiar-password');
+    Route::post('completar', [OnboardingController::class, 'completar'])->name('onboarding.completar');
+});
+
+Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::post('tickets', [TicketController::class, 'store'])->name('tickets.store');
 });
 
-Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->group(function () {
+Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')->group(function () {
     Route::get('catalogos', CatalogosController::class)->name('admin.catalogos');
 
     Route::post('departamentos', [DepartamentoController::class, 'store'])->name('admin.departamentos.store');
@@ -40,6 +50,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->group(functio
     Route::post('ubicaciones', [UbicacionController::class, 'store'])->name('admin.ubicaciones.store');
     Route::put('ubicaciones/{ubicacion}', [UbicacionController::class, 'update'])->name('admin.ubicaciones.update');
     Route::delete('ubicaciones/{ubicacion}', [UbicacionController::class, 'destroy'])->name('admin.ubicaciones.destroy');
+
+    Route::get('usuarios', [UsuarioController::class, 'index'])->name('admin.usuarios');
+    Route::post('usuarios', [UsuarioController::class, 'store'])->name('admin.usuarios.store');
+    Route::put('usuarios/{user}', [UsuarioController::class, 'update'])->name('admin.usuarios.update');
+    Route::delete('usuarios/{user}', [UsuarioController::class, 'destroy'])->name('admin.usuarios.destroy');
 });
 
 require __DIR__.'/settings.php';
