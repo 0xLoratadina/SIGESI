@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\PrioridadController;
 use App\Http\Controllers\Admin\UbicacionController;
 use App\Http\Controllers\Admin\UsuarioController;
+use App\Http\Controllers\Admin\WhatsAppController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\TicketController;
@@ -55,6 +56,8 @@ Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')-
     Route::post('usuarios', [UsuarioController::class, 'store'])->name('admin.usuarios.store');
     Route::put('usuarios/{user}', [UsuarioController::class, 'update'])->name('admin.usuarios.update');
     Route::delete('usuarios/{user}', [UsuarioController::class, 'destroy'])->name('admin.usuarios.destroy');
+
+    Route::get('whatsapp', [WhatsAppController::class, 'index'])->name('admin.whatsapp');
 });
 
 require __DIR__.'/settings.php';

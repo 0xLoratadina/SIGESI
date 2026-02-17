@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, Settings2, Users } from 'lucide-react';
+import { LayoutGrid, MessageCircle, Settings2, Users } from 'lucide-react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -12,7 +12,7 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { catalogos, usuarios } from '@/routes/admin';
+import { catalogos, usuarios, whatsapp } from '@/routes/admin';
 import type { NavItem, SharedData } from '@/types';
 import AppLogo from './app-logo';
 
@@ -25,6 +25,11 @@ const elementosNav: NavItem[] = [
 ];
 
 const elementosAdmin: NavItem[] = [
+    {
+        title: 'WhatsApp',
+        href: whatsapp(),
+        icon: MessageCircle,
+    },
     {
         title: 'Catálogos',
         href: catalogos(),
