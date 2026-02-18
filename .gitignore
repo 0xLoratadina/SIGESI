@@ -33,3 +33,12 @@ yarn-error.log
 CLAUDE.md
 AGENTS.md
 .mcp.json
+
+# Base de datos SQLite
+database/*.sqlite
+database/*.sqlite-journal
+
+# WhatsApp / Evolution API
+instance_response.json
+qrcode.txt
+evolution-api/.env

@@ -1,9 +1,12 @@
-import { ChevronDown, PanelRightClose, PanelRightOpen, Send } from 'lucide-react';
+import { ChevronDown, Loader2, PanelRightClose, PanelRightOpen, Send } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback } from 'react';
+import axios from 'axios';
 import MessageBubble from '@/components/whatsapp/message-bubble';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import MediaGallery from '@/components/whatsapp/media-gallery';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { enviarMensaje as enviarMensajeAction, marcarLeidos } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
 import type { Chat, Mensaje } from '@/pages/admin/whatsapp/index';
 
 type Props = {
@@ -11,11 +14,14 @@ type Props = {
     mensajes: Mensaje[];
     onToggleInfo: () => void;
     mostrarInfo: boolean;
+    onMensajeEnviado?: (mensaje: Mensaje) => void;
 };
 
-export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }: Props) {
+export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, onMensajeEnviado }: Props) {
     const [mensaje, setMensaje] = useState('');
+    const [enviando, setEnviando] = useState(false);
     const [mostrarBotonAbajo, setMostrarBotonAbajo] = useState(false);
+    const [galeriaUrl, setGaleriaUrl] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const separadorNoLeidosRef = useRef<HTMLDivElement>(null);
     const prevMensajesLength = useRef(mensajes.length);
@@ -53,6 +59,13 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }
             }
             setMostrarBotonAbajo(false);
         }, 50);
+
+        // Marcar mensajes como leídos al entrar al chat (silencioso)
+        if (chat && mensajesNoLeidos > 0) {
+            const route = marcarLeidos(Number(chat.id));
+            axios.post(route.url).catch((err) => console.error('Error al marcar leídos:', err));
+        }
+
         return () => clearTimeout(timer);
     }, [chat?.id]);
 
@@ -80,10 +93,30 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }
     }, [mensajes.length, scrollToBottom]);
 
     function enviarMensaje() {
-        if (!mensaje.trim()) return;
-        // TODO: Implementar envio real
-        console.log('Enviando:', mensaje);
+        if (!mensaje.trim() || !chat || enviando) return;
+
+        const textoMensaje = mensaje.trim();
+        setEnviando(true);
         setMensaje('');
+
+        // Crear mensaje optimista para mostrar inmediatamente
+        const ahora = new Date();
+        const mensajeOptimista: Mensaje = {
+            id: `temp-${Date.now()}`,
+            tipo: 'enviado',
+            contenido: textoMensaje,
+            hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`,
+            leido: true,
+        };
+
+        // Agregar mensaje a la UI inmediatamente
+        onMensajeEnviado?.(mensajeOptimista);
+
+        const route = enviarMensajeAction(Number(chat.id));
+
+        axios.post(route.url, { mensaje: textoMensaje })
+            .catch((err) => console.error('Error al enviar mensaje:', err))
+            .finally(() => setEnviando(false));
     }
 
     function handleKeyDown(e: React.KeyboardEvent) {
@@ -112,6 +145,7 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }
                 <div className="flex items-center gap-3">
                     <div className="relative shrink-0">
                         <Avatar className="h-10 w-10">
+                            {chat.avatar && <AvatarImage src={chat.avatar} alt={chat.nombre} />}
                             <AvatarFallback className="bg-primary/10 text-sm font-medium">
                                 {chat.nombre
                                     .split(' ')
@@ -167,7 +201,7 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }
                                             <div className="flex-1 h-px bg-primary/30" />
                                         </div>
                                     )}
-                                    <MessageBubble mensaje={msg} />
+                                    <MessageBubble mensaje={msg} onMediaClick={(url) => setGaleriaUrl(url)} />
                                 </div>
                             ));
                         })()
@@ -199,13 +233,22 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo }
                     <Button
                         size="icon"
                         onClick={enviarMensaje}
-                        disabled={!mensaje.trim()}
+                        disabled={!mensaje.trim() || enviando}
                         className="h-10 w-10 shrink-0"
                     >
-                        <Send className="h-4 w-4" />
+                        {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                 </div>
             </div>
+
+            {/* Galería de media */}
+            {galeriaUrl && (
+                <MediaGallery
+                    mensajes={mensajes}
+                    urlActiva={galeriaUrl}
+                    onClose={() => setGaleriaUrl(null)}
+                />
+            )}
         </div>
     );
 }

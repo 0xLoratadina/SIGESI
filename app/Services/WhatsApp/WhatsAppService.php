@@ -80,7 +80,7 @@ class WhatsAppService
             'avatar' => $contacto->avatar,
             'ultimo_mensaje' => $ultimoMensaje?->contenido ?? '',
             'hora_ultimo' => $ultimoMensaje?->enviado_at->format('H:i') ?? '',
-            'ultimo_mensaje_at' => $ultimoMensaje?->enviado_at,
+            'ultimo_mensaje_at' => $ultimoMensaje?->enviado_at?->toISOString(),
             'no_leidos' => $contacto->mensajesNoLeidos(),
             'en_linea' => $contacto->en_linea,
             'estado_ticket' => $contacto->estado_ticket->value,
@@ -101,6 +101,8 @@ class WhatsAppService
             'hora' => $mensaje->enviado_at->format('H:i'),
             'leido' => $mensaje->leido,
             'es_bot' => $mensaje->es_bot,
+            'media_url' => $mensaje->media_url,
+            'media_tipo' => $mensaje->media_tipo,
         ];
     }
 }

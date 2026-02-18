@@ -3,23 +3,675 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\WhatsAppContacto;
+use App\Models\WhatsAppMensaje;
+use App\Services\WhatsApp\EvolutionApiService;
 use App\Services\WhatsApp\WhatsAppService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class WhatsAppController extends Controller
 {
     public function __construct(
-        private WhatsAppService $whatsAppService
+        private WhatsAppService $whatsAppService,
+        private EvolutionApiService $evolutionApi
     ) {}
 
     public function index(): Response
     {
+        // Re-configurar webhook automáticamente al cargar la página
+        if ($this->evolutionApi->estaConectado()) {
+            $this->configurarWebhookAutomatico();
+        }
+
         return Inertia::render('admin/whatsapp/index', [
             'chats' => $this->whatsAppService->getChats(),
             'mensajes' => $this->whatsAppService->getMensajesPorChat(),
             'tickets' => $this->whatsAppService->getTicketsPorChat(),
-            'estadoConexion' => $this->whatsAppService->getEstadoConexion(),
+            'estadoConexion' => $this->obtenerEstadoConexion(),
+            'ultimaActualizacion' => now()->toISOString(),
+        ]);
+    }
+
+    /**
+     * Obtener actualizaciones (mensajes nuevos) desde un timestamp.
+     * Polling híbrido: primero BD, si no hay nada nuevo, fallback a API.
+     */
+    public function actualizaciones(Request $request): JsonResponse
+    {
+        $desde = $request->input('desde');
+        $chatActivoId = $request->input('chat_activo');
+        $timestamp = $desde ? \Carbon\Carbon::parse($desde) : now()->subMinutes(5);
+
+        // 1. Buscar mensajes nuevos en BD
+        $mensajesNuevos = WhatsAppMensaje::with('contacto')
+            ->where('created_at', '>', $timestamp)
+            ->orderBy('created_at')
+            ->get();
+
+        // 2. Si no hay mensajes nuevos en BD, intentar sync rápido desde API (throttled)
+        if ($mensajesNuevos->isEmpty() && $this->evolutionApi->estaConectado()) {
+            $this->sincronizarRecientes($chatActivoId);
+
+            // Re-consultar BD después del sync
+            $mensajesNuevos = WhatsAppMensaje::with('contacto')
+                ->where('created_at', '>', $timestamp)
+                ->orderBy('created_at')
+                ->get();
+        }
+
+        // Agrupar por contacto
+        $mensajesPorChat = [];
+        foreach ($mensajesNuevos as $mensaje) {
+            $contactoId = (string) $mensaje->contacto_id;
+            if (! isset($mensajesPorChat[$contactoId])) {
+                $mensajesPorChat[$contactoId] = [];
+            }
+            $mensajesPorChat[$contactoId][] = [
+                'id' => (string) $mensaje->id,
+                'tipo' => $mensaje->tipo->value,
+                'contenido' => $mensaje->contenido,
+                'hora' => $mensaje->enviado_at->format('H:i'),
+                'leido' => $mensaje->leido,
+                'es_bot' => $mensaje->es_bot,
+                'media_url' => $mensaje->media_url,
+                'media_tipo' => $mensaje->media_tipo,
+            ];
+        }
+
+        // Obtener chats actualizados
+        $contactosActualizados = WhatsAppContacto::whereIn('id', $mensajesNuevos->pluck('contacto_id')->unique())
+            ->orWhere('updated_at', '>', $timestamp)
+            ->get();
+
+        $chatsActualizados = $contactosActualizados->map(function (WhatsAppContacto $contacto) {
+            $ultimoMensaje = $contacto->ultimoMensaje();
+
+            return [
+                'id' => (string) $contacto->id,
+                'nombre' => $contacto->nombre,
+                'telefono' => $contacto->telefono,
+                'avatar' => $contacto->avatar,
+                'ultimo_mensaje' => $ultimoMensaje?->contenido ?? '',
+                'hora_ultimo' => $ultimoMensaje?->enviado_at->format('H:i') ?? '',
+                'ultimo_mensaje_at' => $ultimoMensaje?->enviado_at?->toISOString(),
+                'no_leidos' => $contacto->mensajesNoLeidos(),
+                'en_linea' => $contacto->en_linea,
+                'estado_ticket' => $contacto->estado_ticket->value,
+            ];
+        })->keyBy('id')->all();
+
+        return response()->json([
+            'mensajes' => $mensajesPorChat,
+            'chats' => $chatsActualizados,
+            'timestamp' => now()->toISOString(),
+            'hayNuevos' => $mensajesNuevos->isNotEmpty(),
+        ]);
+    }
+
+    /**
+     * Sync rápido de mensajes recientes desde Evolution API.
+     * Throttled: máximo 1 vez cada 10 segundos.
+     */
+    private function sincronizarRecientes(?string $chatActivoId = null): void
+    {
+        $cacheKey = 'whatsapp_sync_recientes';
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+        Cache::put($cacheKey, true, 10);
+
+        try {
+            // Si hay chat activo, priorizar ese contacto
+            $contactos = collect();
+
+            if ($chatActivoId) {
+                $contactoActivo = WhatsAppContacto::find($chatActivoId);
+                if ($contactoActivo) {
+                    $contactos->push($contactoActivo);
+                }
+            }
+
+            // Agregar contactos con actividad reciente (máximo 5)
+            $contactosRecientes = WhatsAppContacto::query()
+                ->when($chatActivoId, fn ($q) => $q->where('id', '!=', $chatActivoId))
+                ->orderByDesc('updated_at')
+                ->limit(5)
+                ->get();
+            $contactos = $contactos->merge($contactosRecientes);
+
+            foreach ($contactos as $contacto) {
+                if (! $contacto->whatsapp_id) {
+                    continue;
+                }
+
+                $mensajesApi = $this->evolutionApi->obtenerMensajes($contacto->whatsapp_id, 10);
+                $mensajes = $mensajesApi['messages']['records'] ?? $mensajesApi ?? [];
+
+                if (is_array($mensajes)) {
+                    $this->guardarMensajes($contacto, $mensajes);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::channel('whatsapp')->warning('Error en sincronización rápida', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Obtener estado de conexion real.
+     */
+    private function obtenerEstadoConexion(): string
+    {
+        if ($this->evolutionApi->estaConectado()) {
+            return 'conectado';
+        }
+
+        $qrcode = cache()->get('whatsapp_qrcode');
+        if ($qrcode) {
+            return 'conectando';
+        }
+
+        return 'desconectado';
+    }
+
+    /**
+     * Conectar WhatsApp (crear instancia y obtener QR).
+     */
+    public function conectar(): JsonResponse
+    {
+        $resultado = $this->evolutionApi->crearInstancia();
+
+        if (isset($resultado['error'])) {
+            return response()->json(['error' => $resultado['message']], 500);
+        }
+
+        $qrcode = $resultado['qrcode']['base64'] ?? null;
+
+        if ($qrcode) {
+            cache()->put('whatsapp_qrcode', $qrcode, now()->addMinutes(2));
+        }
+
+        // Configurar webhook automáticamente
+        $this->configurarWebhookAutomatico();
+
+        return response()->json([
+            'status' => 'ok',
+            'qrcode' => $qrcode,
+        ]);
+    }
+
+    /**
+     * Configurar webhook automáticamente.
+     */
+    private function configurarWebhookAutomatico(): void
+    {
+        // Determinar la URL del webhook según el entorno
+        $appUrl = config('app.url');
+
+        // Si estamos en desarrollo local y Evolution API está en Docker,
+        // necesitamos usar host.docker.internal
+        if (str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
+            $webhookUrl = str_replace(['localhost', '127.0.0.1'], 'host.docker.internal', $appUrl);
+        } else {
+            $webhookUrl = $appUrl;
+        }
+
+        $webhookUrl .= '/api/whatsapp/webhook';
+
+        $this->evolutionApi->configurarWebhook($webhookUrl);
+    }
+
+    /**
+     * Obtener QR code actual.
+     */
+    public function qrcode(): JsonResponse
+    {
+        $qrcodeCache = cache()->get('whatsapp_qrcode');
+
+        if ($qrcodeCache) {
+            return response()->json(['qrcode' => $qrcodeCache]);
+        }
+
+        $resultado = $this->evolutionApi->obtenerQrCode();
+
+        if (! $resultado) {
+            return response()->json(['error' => 'No hay QR disponible'], 404);
+        }
+
+        $qrcode = $resultado['base64'] ?? null;
+
+        return response()->json(['qrcode' => $qrcode]);
+    }
+
+    /**
+     * Obtener estado actual de la conexion.
+     */
+    public function estado(): JsonResponse
+    {
+        $resultado = $this->evolutionApi->obtenerEstado();
+
+        return response()->json([
+            'conectado' => ($resultado['instance']['state'] ?? 'close') === 'open',
+            'estado' => $resultado['instance']['state'] ?? 'close',
+        ]);
+    }
+
+    /**
+     * Desconectar WhatsApp.
+     */
+    public function desconectar(): JsonResponse
+    {
+        $exito = $this->evolutionApi->desconectar();
+
+        cache()->forget('whatsapp_qrcode');
+        cache()->forget('whatsapp_connection_state');
+
+        return response()->json(['status' => $exito ? 'ok' : 'error']);
+    }
+
+    /**
+     * Enviar mensaje de texto.
+     */
+    public function enviarMensaje(Request $request, WhatsAppContacto $contacto): JsonResponse
+    {
+        $request->validate([
+            'mensaje' => ['required', 'string', 'max:4096'],
+        ]);
+
+        $resultado = $this->evolutionApi->enviarTexto(
+            $contacto->telefono,
+            $request->input('mensaje')
+        );
+
+        if (isset($resultado['error'])) {
+            return response()->json(['error' => $resultado['message']], 500);
+        }
+
+        WhatsAppMensaje::create([
+            'contacto_id' => $contacto->id,
+            'whatsapp_id' => $resultado['key']['id'] ?? null,
+            'tipo' => \App\Enums\TipoMensajeWhatsApp::Enviado,
+            'contenido' => $request->input('mensaje'),
+            'enviado_at' => now(),
+            'leido' => true,
+            'es_bot' => false,
+        ]);
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Marcar mensajes como leidos.
+     */
+    public function marcarLeidos(WhatsAppContacto $contacto): JsonResponse
+    {
+        $contacto->mensajes()
+            ->where('leido', false)
+            ->update(['leido' => true]);
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Obtener lista de contactos de WhatsApp.
+     */
+    public function contactos(): JsonResponse
+    {
+        $contactos = $this->evolutionApi->obtenerContactos();
+
+        return response()->json($contactos);
+    }
+
+    /**
+     * Sincronizar chats y mensajes desde Evolution API.
+     */
+    public function sincronizar(): JsonResponse
+    {
+        $chats = $this->evolutionApi->obtenerChats();
+        $sincronizados = 0;
+        $mensajesSincronizados = 0;
+
+        // Primero, fusionar contactos @lid con sus equivalentes de teléfono
+        $this->fusionarContactosLid();
+
+        foreach ($chats as $chat) {
+            // Solo sincronizar chats individuales con teléfono (no @lid ni grupos)
+            if (! str_ends_with($chat['remoteJid'], '@s.whatsapp.net')) {
+                continue;
+            }
+
+            if ($chat['remoteJid'] === '0@s.whatsapp.net') {
+                continue;
+            }
+
+            $contacto = WhatsAppContacto::buscarOCrear($chat['remoteJid'], [
+                'nombre' => $chat['pushName'] ?: WhatsAppContacto::extraerTelefono($chat['remoteJid']),
+                'avatar' => $chat['profilePicUrl'] ?? null,
+                'en_linea' => false,
+            ]);
+
+            // Obtener timestamp del último mensaje sincronizado para este contacto
+            $ultimoMensaje = WhatsAppMensaje::where('contacto_id', $contacto->id)
+                ->orderByDesc('enviado_at')
+                ->first();
+            $desdeTimestamp = $ultimoMensaje?->enviado_at?->timestamp;
+
+            // Usar paginación para traer todos los mensajes (o solo los nuevos)
+            $mensajes = $this->evolutionApi->obtenerTodosLosMensajes(
+                $chat['remoteJid'],
+                $desdeTimestamp
+            );
+
+            $nuevos = $this->guardarMensajes($contacto, $mensajes);
+            $mensajesSincronizados += $nuevos;
+            $sincronizados++;
+        }
+
+        return response()->json([
+            'status' => 'ok',
+            'chats_sincronizados' => $sincronizados,
+            'mensajes_sincronizados' => $mensajesSincronizados,
+        ]);
+    }
+
+    /**
+     * Guardar mensajes de la API en la BD, retorna cantidad de nuevos.
+     *
+     * @param  array<int, array<string, mixed>>  $mensajes
+     */
+    private function guardarMensajes(WhatsAppContacto $contacto, array $mensajes): int
+    {
+        $nuevos = 0;
+
+        foreach ($mensajes as $msg) {
+            $whatsappMessageId = $msg['key']['id'] ?? null;
+
+            if ($whatsappMessageId && WhatsAppMensaje::where('whatsapp_id', $whatsappMessageId)->exists()) {
+                continue;
+            }
+
+            $message = $msg['message'] ?? [];
+            $mediaTipo = $this->determinarTipoMedia($message);
+            $contenido = $this->extraerContenido($msg);
+
+            if (! $contenido) {
+                continue;
+            }
+
+            // Solo descargar media para mensajes recientes (< 1 hora)
+            $mediaUrl = null;
+            $enviadoAt = isset($msg['messageTimestamp'])
+                ? \Carbon\Carbon::createFromTimestamp($msg['messageTimestamp'])
+                : now();
+            $esReciente = $enviadoAt->gt(now()->subHour());
+
+            if ($whatsappMessageId && $mediaTipo && $mediaTipo !== 'texto' && $esReciente) {
+                $mediaUrl = $this->descargarMedia($whatsappMessageId, $mediaTipo, $message);
+            }
+
+            WhatsAppMensaje::create([
+                'contacto_id' => $contacto->id,
+                'whatsapp_id' => $whatsappMessageId,
+                'tipo' => ($msg['key']['fromMe'] ?? false)
+                    ? \App\Enums\TipoMensajeWhatsApp::Enviado
+                    : \App\Enums\TipoMensajeWhatsApp::Recibido,
+                'contenido' => $contenido,
+                'media_url' => $mediaUrl,
+                'media_tipo' => $mediaTipo !== 'texto' ? $mediaTipo : null,
+                'enviado_at' => $enviadoAt,
+                'leido' => true,
+                'es_bot' => false,
+            ]);
+
+            $nuevos++;
+        }
+
+        return $nuevos;
+    }
+
+    /**
+     * Fusionar contactos @lid con sus equivalentes de teléfono.
+     * WhatsApp usa @lid (Linked ID) además de @s.whatsapp.net para el mismo contacto.
+     */
+    private function fusionarContactosLid(): void
+    {
+        $contactosLid = WhatsAppContacto::where('whatsapp_id', 'LIKE', '%@lid')->get();
+
+        foreach ($contactosLid as $contactoLid) {
+            // Buscar contacto real por nombre
+            $contactoReal = WhatsAppContacto::where('nombre', $contactoLid->nombre)
+                ->where('whatsapp_id', 'NOT LIKE', '%@lid')
+                ->where('id', '!=', $contactoLid->id)
+                ->first();
+
+            if ($contactoReal) {
+                Log::channel('whatsapp')->info('Fusionando contacto @lid', [
+                    'lid_id' => $contactoLid->id,
+                    'lid_jid' => $contactoLid->whatsapp_id,
+                    'real_id' => $contactoReal->id,
+                    'real_telefono' => $contactoReal->telefono,
+                    'nombre' => $contactoLid->nombre,
+                ]);
+
+                $contactoReal->fusionarDesde($contactoLid);
+            }
+        }
+    }
+
+    /**
+     * Extraer contenido legible de un mensaje de WhatsApp.
+     */
+    private function extraerContenido(array $msg): ?string
+    {
+        $message = $msg['message'] ?? [];
+
+        // Mensaje de texto simple
+        if (isset($message['conversation'])) {
+            return $message['conversation'];
+        }
+
+        // Mensaje extendido (con contexto)
+        if (isset($message['extendedTextMessage']['text'])) {
+            return $message['extendedTextMessage']['text'];
+        }
+
+        // Imagen con caption
+        if (isset($message['imageMessage'])) {
+            return $message['imageMessage']['caption'] ?? '[Imagen]';
+        }
+
+        // Video con caption
+        if (isset($message['videoMessage'])) {
+            return $message['videoMessage']['caption'] ?? '[Video]';
+        }
+
+        // Audio
+        if (isset($message['audioMessage'])) {
+            return '[Audio]';
+        }
+
+        // Documento
+        if (isset($message['documentMessage'])) {
+            return '[Documento: '.($message['documentMessage']['fileName'] ?? 'archivo').']';
+        }
+
+        // Sticker
+        if (isset($message['stickerMessage'])) {
+            return '[Sticker]';
+        }
+
+        // Ubicación
+        if (isset($message['locationMessage'])) {
+            return '[Ubicación]';
+        }
+
+        // Contacto
+        if (isset($message['contactMessage'])) {
+            return '[Contacto: '.($message['contactMessage']['displayName'] ?? 'contacto').']';
+        }
+
+        return null;
+    }
+
+    /**
+     * Determinar el tipo de media de un mensaje.
+     */
+    private function determinarTipoMedia(array $message): string
+    {
+        if (isset($message['imageMessage'])) {
+            return 'imagen';
+        }
+
+        if (isset($message['videoMessage'])) {
+            return 'video';
+        }
+
+        if (isset($message['audioMessage'])) {
+            return 'audio';
+        }
+
+        if (isset($message['documentMessage'])) {
+            return 'documento';
+        }
+
+        if (isset($message['stickerMessage'])) {
+            return 'sticker';
+        }
+
+        return 'texto';
+    }
+
+    /**
+     * Descargar y guardar media.
+     */
+    private function descargarMedia(string $messageId, string $mediaTipo, array $message): ?string
+    {
+        try {
+            $mediaData = $this->evolutionApi->descargarMedia($messageId, $mediaTipo);
+
+            if (! $mediaData || empty($mediaData['base64'])) {
+                return null;
+            }
+
+            $base64 = $mediaData['base64'];
+            $mimeType = $mediaData['mimetype'] ?? $this->getMimeTypeDefault($mediaTipo);
+            $extension = $this->getExtension($mimeType, $mediaTipo, $message);
+
+            $fileName = 'whatsapp/'.date('Y/m/').\Illuminate\Support\Str::uuid().'.'.$extension;
+
+            \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, base64_decode($base64));
+
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($fileName);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::channel('whatsapp')->error('Error al descargar media en sync', [
+                'messageId' => $messageId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Obtener mime type por defecto.
+     */
+    private function getMimeTypeDefault(string $mediaTipo): string
+    {
+        return match ($mediaTipo) {
+            'imagen' => 'image/jpeg',
+            'video' => 'video/mp4',
+            'audio' => 'audio/ogg',
+            'sticker' => 'image/webp',
+            'documento' => 'application/octet-stream',
+            default => 'application/octet-stream',
+        };
+    }
+
+    /**
+     * Obtener extensión del archivo.
+     */
+    private function getExtension(string $mimeType, string $mediaTipo, array $message): string
+    {
+        if ($mediaTipo === 'documento' && isset($message['documentMessage']['fileName'])) {
+            $ext = pathinfo($message['documentMessage']['fileName'], PATHINFO_EXTENSION);
+            if ($ext) {
+                return $ext;
+            }
+        }
+
+        $mimeMap = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'video/mp4' => 'mp4',
+            'audio/ogg' => 'ogg',
+            'audio/mpeg' => 'mp3',
+            'application/pdf' => 'pdf',
+        ];
+
+        return $mimeMap[$mimeType] ?? match ($mediaTipo) {
+            'imagen' => 'jpg',
+            'video' => 'mp4',
+            'audio' => 'ogg',
+            'sticker' => 'webp',
+            default => 'bin',
+        };
+    }
+
+    /**
+     * Iniciar nueva conversacion.
+     */
+    public function nuevoChat(Request $request): JsonResponse
+    {
+        $request->validate([
+            'telefono' => ['required', 'string', 'min:10', 'max:15'],
+            'nombre' => ['nullable', 'string', 'max:255'],
+            'mensaje' => ['required', 'string', 'max:4096'],
+        ]);
+
+        $telefono = preg_replace('/[^0-9]/', '', $request->input('telefono'));
+
+        // Buscar contacto existente por teléfono (con o sin código de país)
+        $contacto = WhatsAppContacto::where('telefono', $telefono)
+            ->orWhere('telefono', 'LIKE', '%'.$telefono)
+            ->first();
+
+        if (! $contacto) {
+            $jid = $telefono.'@s.whatsapp.net';
+            $contacto = WhatsAppContacto::buscarOCrear($jid, [
+                'nombre' => $request->input('nombre') ?? $telefono,
+                'en_linea' => false,
+            ]);
+        }
+
+        // Enviar mensaje
+        $resultado = $this->evolutionApi->enviarTexto($telefono, $request->input('mensaje'));
+
+        if (isset($resultado['error'])) {
+            return response()->json(['error' => $resultado['message']], 500);
+        }
+
+        // Guardar mensaje
+        WhatsAppMensaje::create([
+            'contacto_id' => $contacto->id,
+            'whatsapp_id' => $resultado['key']['id'] ?? null,
+            'tipo' => \App\Enums\TipoMensajeWhatsApp::Enviado,
+            'contenido' => $request->input('mensaje'),
+            'enviado_at' => now(),
+            'leido' => true,
+            'es_bot' => false,
+        ]);
+
+        return response()->json([
+            'status' => 'ok',
+            'contacto_id' => $contacto->id,
         ]);
     }
 }

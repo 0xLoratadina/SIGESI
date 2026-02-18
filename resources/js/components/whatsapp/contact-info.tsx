@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Phone, Plus, Ticket } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Chat, TicketResumen } from '@/pages/admin/whatsapp/index';
@@ -25,6 +25,7 @@ export default function ContactInfo({ chat, tickets }: Props) {
             <div className="border-b p-6">
                 <div className="flex flex-col items-center text-center">
                     <Avatar className="h-20 w-20">
+                        {chat.avatar && <AvatarImage src={chat.avatar} alt={chat.nombre} />}
                         <AvatarFallback className="bg-primary/10 text-xl font-medium">
                             {chat.nombre
                                 .split(' ')

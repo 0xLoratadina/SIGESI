@@ -58,6 +58,16 @@ Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')-
     Route::delete('usuarios/{user}', [UsuarioController::class, 'destroy'])->name('admin.usuarios.destroy');
 
     Route::get('whatsapp', [WhatsAppController::class, 'index'])->name('admin.whatsapp');
+    Route::get('whatsapp/actualizaciones', [WhatsAppController::class, 'actualizaciones'])->name('admin.whatsapp.actualizaciones');
+    Route::post('whatsapp/conectar', [WhatsAppController::class, 'conectar'])->name('admin.whatsapp.conectar');
+    Route::get('whatsapp/qrcode', [WhatsAppController::class, 'qrcode'])->name('admin.whatsapp.qrcode');
+    Route::get('whatsapp/estado', [WhatsAppController::class, 'estado'])->name('admin.whatsapp.estado');
+    Route::post('whatsapp/desconectar', [WhatsAppController::class, 'desconectar'])->name('admin.whatsapp.desconectar');
+    Route::post('whatsapp/contactos/{contacto}/mensaje', [WhatsAppController::class, 'enviarMensaje'])->name('admin.whatsapp.enviar-mensaje');
+    Route::post('whatsapp/contactos/{contacto}/leidos', [WhatsAppController::class, 'marcarLeidos'])->name('admin.whatsapp.marcar-leidos');
+    Route::get('whatsapp/contactos', [WhatsAppController::class, 'contactos'])->name('admin.whatsapp.contactos');
+    Route::post('whatsapp/sincronizar', [WhatsAppController::class, 'sincronizar'])->name('admin.whatsapp.sincronizar');
+    Route::post('whatsapp/nuevo-chat', [WhatsAppController::class, 'nuevoChat'])->name('admin.whatsapp.nuevo-chat');
 });
 
 require __DIR__.'/settings.php';
