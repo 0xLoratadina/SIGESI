@@ -343,13 +343,16 @@ class EvolutionApiService
     public function configurarWebhook(string $webhookUrl): array
     {
         $response = $this->client()->post("/webhook/set/{$this->instanceName}", [
-            'url' => $webhookUrl,
-            'webhookByEvents' => false,
-            'webhookBase64' => true,
-            'events' => [
-                'MESSAGES_UPSERT',
-                'CONNECTION_UPDATE',
-                'QRCODE_UPDATED',
+            'webhook' => [
+                'enabled' => true,
+                'url' => $webhookUrl,
+                'byEvents' => false,
+                'base64' => true,
+                'events' => [
+                    'MESSAGES_UPSERT',
+                    'CONNECTION_UPDATE',
+                    'QRCODE_UPDATED',
+                ],
             ],
         ]);
 
