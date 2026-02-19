@@ -138,6 +138,44 @@ class EvolutionApiService
     }
 
     /**
+     * Enviar mensaje de texto con cita (reply/quote).
+     *
+     * @return array<string, mixed>
+     */
+    public function enviarTextoConCita(string $telefono, string $mensaje, string $quotedMessageId, bool $fromMe, string $quotedContent): array
+    {
+        $remoteJid = $this->formatearTelefono($telefono).'@s.whatsapp.net';
+
+        $response = $this->client()->post("/message/sendText/{$this->instanceName}", [
+            'number' => $this->formatearTelefono($telefono),
+            'text' => $mensaje,
+            'quoted' => [
+                'key' => [
+                    'id' => $quotedMessageId,
+                    'remoteJid' => $remoteJid,
+                    'fromMe' => $fromMe,
+                ],
+                'message' => [
+                    'conversation' => $quotedContent,
+                ],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            Log::channel('whatsapp')->error('Error al enviar mensaje con cita', [
+                'telefono' => $telefono,
+                'quotedId' => $quotedMessageId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return ['error' => true, 'message' => 'Error al enviar mensaje con cita'];
+        }
+
+        return $response->json();
+    }
+
+    /**
      * Enviar imagen.
      *
      * @return array<string, mixed>

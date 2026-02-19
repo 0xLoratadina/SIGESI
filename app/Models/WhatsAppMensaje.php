@@ -21,6 +21,9 @@ class WhatsAppMensaje extends Model
         'media_url',
         'media_tipo',
         'enviado_at',
+        'respuesta_a_id',
+        'respuesta_a_contenido',
+        'respuesta_a_tipo',
     ];
 
     protected function casts(): array

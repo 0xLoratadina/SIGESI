@@ -29,6 +29,7 @@ export type MediaTipo = 'imagen' | 'video' | 'audio' | 'documento' | 'sticker' |
 
 export type Mensaje = {
     id: string;
+    whatsapp_id?: string | null;
     tipo: 'recibido' | 'enviado';
     contenido: string;
     hora: string;
@@ -36,6 +37,7 @@ export type Mensaje = {
     es_bot?: boolean;
     media_url?: string | null;
     media_tipo?: MediaTipo;
+    respuesta_a?: { contenido: string; tipo: 'recibido' | 'enviado' } | null;
 };
 
 export type TicketResumen = {
@@ -229,6 +231,7 @@ export default function WhatsAppInbox({ chats: chatsIniciales, mensajes: mensaje
                         onToggleInfo={() => setMostrarInfo(!mostrarInfo)}
                         mostrarInfo={mostrarInfo}
                         onMensajeEnviado={handleMensajeEnviado}
+                        onCerrarChat={() => setChatActivo(null)}
                     />
 
                     {/* Info del contacto */}

@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, PanelRightClose, PanelRightOpen, Send } from 'lucide-react';
+import { ChevronDown, Loader2, PanelRightClose, PanelRightOpen, Reply, Send, X } from 'lucide-react';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import MessageBubble from '@/components/whatsapp/message-bubble';
@@ -15,15 +15,18 @@ type Props = {
     onToggleInfo: () => void;
     mostrarInfo: boolean;
     onMensajeEnviado?: (mensaje: Mensaje) => void;
+    onCerrarChat?: () => void;
 };
 
-export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, onMensajeEnviado }: Props) {
+export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, onMensajeEnviado, onCerrarChat }: Props) {
     const [mensaje, setMensaje] = useState('');
     const [enviando, setEnviando] = useState(false);
     const [mostrarBotonAbajo, setMostrarBotonAbajo] = useState(false);
     const [galeriaUrl, setGaleriaUrl] = useState<string | null>(null);
+    const [mensajeRespondiendo, setMensajeRespondiendo] = useState<Mensaje | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const separadorNoLeidosRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const prevMensajesLength = useRef(mensajes.length);
 
     // Contar mensajes no leídos (solo los recibidos)
@@ -60,6 +63,9 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
             setMostrarBotonAbajo(false);
         }, 50);
 
+        // Limpiar mensaje respondiendo al cambiar de chat
+        setMensajeRespondiendo(null);
+
         // Marcar mensajes como leídos al entrar al chat (silencioso)
         if (chat && mensajesNoLeidos > 0) {
             const route = marcarLeidos(Number(chat.id));
@@ -77,12 +83,19 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
         return () => clearTimeout(timer);
     }, [mensajes, checkIfAtBottom]);
 
-    // Scroll al fondo cuando llegan nuevos mensajes (solo si ya estaba abajo)
+    // Scroll al fondo cuando llegan nuevos mensajes
     useEffect(() => {
         if (mensajes.length > prevMensajesLength.current) {
-            if (scrollRef.current) {
+            const nuevoMensaje = mensajes[mensajes.length - 1];
+            const esEnviadoPorNosotros = nuevoMensaje?.tipo === 'enviado';
+
+            if (esEnviadoPorNosotros) {
+                // Si enviamos nosotros, SIEMPRE scroll al fondo
+                scrollToBottom();
+            } else if (scrollRef.current) {
+                // Si es recibido, solo scroll si estábamos cerca del fondo
                 const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-                const wasAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+                const wasAtBottom = scrollHeight - scrollTop - clientHeight < 100;
 
                 if (wasAtBottom) {
                     scrollToBottom();
@@ -96,8 +109,10 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
         if (!mensaje.trim() || !chat || enviando) return;
 
         const textoMensaje = mensaje.trim();
+        const respondiendo = mensajeRespondiendo;
         setEnviando(true);
         setMensaje('');
+        setMensajeRespondiendo(null);
 
         // Crear mensaje optimista para mostrar inmediatamente
         const ahora = new Date();
@@ -107,14 +122,25 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
             contenido: textoMensaje,
             hora: `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`,
             leido: true,
+            respuesta_a: respondiendo ? {
+                contenido: respondiendo.contenido,
+                tipo: respondiendo.tipo,
+            } : null,
         };
 
         // Agregar mensaje a la UI inmediatamente
         onMensajeEnviado?.(mensajeOptimista);
 
         const route = enviarMensajeAction(Number(chat.id));
+        const payload: Record<string, string> = { mensaje: textoMensaje };
 
-        axios.post(route.url, { mensaje: textoMensaje })
+        if (respondiendo?.whatsapp_id) {
+            payload.respuesta_a_id = respondiendo.whatsapp_id;
+            payload.respuesta_a_contenido = respondiendo.contenido.substring(0, 500);
+            payload.respuesta_a_tipo = respondiendo.tipo;
+        }
+
+        axios.post(route.url, payload)
             .catch((err) => console.error('Error al enviar mensaje:', err))
             .finally(() => setEnviando(false));
     }
@@ -168,9 +194,14 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
                         </p>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={onToggleInfo} title={mostrarInfo ? 'Ocultar info' : 'Mostrar info'}>
-                    {mostrarInfo ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={onToggleInfo} title={mostrarInfo ? 'Ocultar info' : 'Mostrar info'}>
+                        {mostrarInfo ? <PanelRightClose className="h-5 w-5" /> : <PanelRightOpen className="h-5 w-5" />}
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onCerrarChat} title="Cerrar chat">
+                        <X className="h-5 w-5" />
+                    </Button>
+                </div>
             </div>
 
             {/* Mensajes */}
@@ -201,7 +232,14 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
                                             <div className="flex-1 h-px bg-primary/30" />
                                         </div>
                                     )}
-                                    <MessageBubble mensaje={msg} onMediaClick={(url) => setGaleriaUrl(url)} />
+                                    <MessageBubble
+                                        mensaje={msg}
+                                        onMediaClick={(url) => setGaleriaUrl(url)}
+                                        onResponder={(m) => {
+                                            setMensajeRespondiendo(m);
+                                            inputRef.current?.focus();
+                                        }}
+                                    />
                                 </div>
                             ));
                         })()
@@ -220,10 +258,38 @@ export default function ChatWindow({ chat, mensajes, onToggleInfo, mostrarInfo, 
                 )}
             </div>
 
+            {/* Barra de respuesta */}
+            {mensajeRespondiendo && (
+                <div className="shrink-0 border-t bg-muted/50 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                        <Reply className="h-4 w-4 text-primary shrink-0" />
+                        <div className={`flex-1 min-w-0 border-l-2 pl-2 ${
+                            mensajeRespondiendo.tipo === 'enviado' ? 'border-blue-500' : 'border-primary'
+                        }`}>
+                            <p className="text-xs font-medium text-primary">
+                                {mensajeRespondiendo.tipo === 'enviado' ? 'Tú' : 'Contacto'}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                                {mensajeRespondiendo.contenido}
+                            </p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={() => setMensajeRespondiendo(null)}
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* Input de mensaje */}
-            <div className="shrink-0 border-t p-4">
+            <div className={`shrink-0 ${!mensajeRespondiendo ? 'border-t' : ''} p-4`}>
                 <div className="flex items-center gap-3">
                     <Input
+                        ref={inputRef}
                         placeholder="Escribe un mensaje..."
                         value={mensaje}
                         onChange={(e) => setMensaje(e.target.value)}

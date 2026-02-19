@@ -1,19 +1,30 @@
-import { Bot, Check, CheckCheck, Download, FileText, Mic, Pause, Play } from 'lucide-react';
+import { Bot, Check, CheckCheck, Download, FileText, Mic, Pause, Play, Reply } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Mensaje } from '@/pages/admin/whatsapp/index';
 
 type Props = {
     mensaje: Mensaje;
     onMediaClick?: (url: string, tipo: 'imagen' | 'video') => void;
+    onResponder?: (mensaje: Mensaje) => void;
 };
 
-export default function MessageBubble({ mensaje, onMediaClick }: Props) {
+export default function MessageBubble({ mensaje, onMediaClick, onResponder }: Props) {
     const esEnviado = mensaje.tipo === 'enviado';
     const esBot = mensaje.es_bot === true;
     const tieneMedia = mensaje.media_url && mensaje.media_tipo;
 
     return (
-        <div className={`flex ${esEnviado ? 'justify-end' : 'justify-start'}`}>
+        <div className={`group flex ${esEnviado ? 'justify-end' : 'justify-start'}`}>
+            {/* Botón reply - aparece al hover (lado izquierdo para enviados) */}
+            {esEnviado && onResponder && (
+                <button
+                    onClick={() => onResponder(mensaje)}
+                    className="self-center mr-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-muted"
+                    title="Responder"
+                >
+                    <Reply className="h-4 w-4 text-muted-foreground" />
+                </button>
+            )}
             <div
                 className={`relative max-w-[70%] rounded-lg px-3 py-2 ${
                     esEnviado
@@ -21,6 +32,22 @@ export default function MessageBubble({ mensaje, onMediaClick }: Props) {
                         : 'bg-muted'
                 }`}
             >
+                {/* Quote box - mensaje citado */}
+                {mensaje.respuesta_a && (
+                    <div className={`mb-2 rounded-md bg-background/60 dark:bg-background/30 p-2 border-l-2 ${
+                        mensaje.respuesta_a.tipo === 'enviado' ? 'border-blue-500' : 'border-primary'
+                    }`}>
+                        <p className={`text-[11px] font-medium ${
+                            mensaje.respuesta_a.tipo === 'enviado' ? 'text-blue-600 dark:text-blue-400' : 'text-primary'
+                        }`}>
+                            {mensaje.respuesta_a.tipo === 'enviado' ? 'Tú' : 'Contacto'}
+                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                            {mensaje.respuesta_a.contenido}
+                        </p>
+                    </div>
+                )}
+
                 {/* Etiqueta Bot IA */}
                 {esBot && (
                     <div className="flex items-center gap-1.5 mb-2">
@@ -62,6 +89,16 @@ export default function MessageBubble({ mensaje, onMediaClick }: Props) {
                     )}
                 </div>
             </div>
+            {/* Botón reply - aparece al hover (lado derecho para recibidos) */}
+            {!esEnviado && onResponder && (
+                <button
+                    onClick={() => onResponder(mensaje)}
+                    className="self-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-muted"
+                    title="Responder"
+                >
+                    <Reply className="h-4 w-4 text-muted-foreground" />
+                </button>
+            )}
         </div>
     );
 }

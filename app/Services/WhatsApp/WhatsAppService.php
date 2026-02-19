@@ -96,6 +96,7 @@ class WhatsAppService
     {
         return [
             'id' => (string) $mensaje->id,
+            'whatsapp_id' => $mensaje->whatsapp_id,
             'tipo' => $mensaje->tipo->value,
             'contenido' => $mensaje->contenido,
             'hora' => $mensaje->enviado_at->format('H:i'),
@@ -103,6 +104,10 @@ class WhatsAppService
             'es_bot' => $mensaje->es_bot,
             'media_url' => $mensaje->media_url,
             'media_tipo' => $mensaje->media_tipo,
+            'respuesta_a' => $mensaje->respuesta_a_id ? [
+                'contenido' => $mensaje->respuesta_a_contenido,
+                'tipo' => $mensaje->respuesta_a_tipo,
+            ] : null,
         ];
     }
 }

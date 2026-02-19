@@ -73,6 +73,7 @@ class WhatsAppController extends Controller
             }
             $mensajesPorChat[$contactoId][] = [
                 'id' => (string) $mensaje->id,
+                'whatsapp_id' => $mensaje->whatsapp_id,
                 'tipo' => $mensaje->tipo->value,
                 'contenido' => $mensaje->contenido,
                 'hora' => $mensaje->enviado_at->format('H:i'),
@@ -80,6 +81,10 @@ class WhatsAppController extends Controller
                 'es_bot' => $mensaje->es_bot,
                 'media_url' => $mensaje->media_url,
                 'media_tipo' => $mensaje->media_tipo,
+                'respuesta_a' => $mensaje->respuesta_a_id ? [
+                    'contenido' => $mensaje->respuesta_a_contenido,
+                    'tipo' => $mensaje->respuesta_a_tipo,
+                ] : null,
             ];
         }
 
@@ -282,12 +287,30 @@ class WhatsAppController extends Controller
     {
         $request->validate([
             'mensaje' => ['required', 'string', 'max:4096'],
+            'respuesta_a_id' => ['nullable', 'string'],
+            'respuesta_a_contenido' => ['nullable', 'string', 'max:500'],
+            'respuesta_a_tipo' => ['nullable', 'string', 'in:recibido,enviado'],
         ]);
 
-        $resultado = $this->evolutionApi->enviarTexto(
-            $contacto->telefono,
-            $request->input('mensaje')
-        );
+        $respuestaAId = $request->input('respuesta_a_id');
+        $respuestaAContenido = $request->input('respuesta_a_contenido');
+        $respuestaATipo = $request->input('respuesta_a_tipo');
+
+        if ($respuestaAId && $respuestaAContenido) {
+            $fromMe = $respuestaATipo === 'enviado';
+            $resultado = $this->evolutionApi->enviarTextoConCita(
+                $contacto->telefono,
+                $request->input('mensaje'),
+                $respuestaAId,
+                $fromMe,
+                $respuestaAContenido
+            );
+        } else {
+            $resultado = $this->evolutionApi->enviarTexto(
+                $contacto->telefono,
+                $request->input('mensaje')
+            );
+        }
 
         if (isset($resultado['error'])) {
             return response()->json(['error' => $resultado['message']], 500);
@@ -301,6 +324,9 @@ class WhatsAppController extends Controller
             'enviado_at' => now(),
             'leido' => true,
             'es_bot' => false,
+            'respuesta_a_id' => $respuestaAId,
+            'respuesta_a_contenido' => $respuestaAContenido,
+            'respuesta_a_tipo' => $respuestaATipo,
         ]);
 
         return response()->json(['status' => 'ok']);
@@ -415,6 +441,9 @@ class WhatsAppController extends Controller
                 $mediaUrl = $this->descargarMedia($whatsappMessageId, $mediaTipo, $message);
             }
 
+            // Extraer datos de cita (contextInfo) si existe
+            $respuestaData = $this->extraerDatosRespuesta($msg);
+
             WhatsAppMensaje::create([
                 'contacto_id' => $contacto->id,
                 'whatsapp_id' => $whatsappMessageId,
@@ -427,6 +456,9 @@ class WhatsAppController extends Controller
                 'enviado_at' => $enviadoAt,
                 'leido' => true,
                 'es_bot' => false,
+                'respuesta_a_id' => $respuestaData['id'],
+                'respuesta_a_contenido' => $respuestaData['contenido'],
+                'respuesta_a_tipo' => $respuestaData['tipo'],
             ]);
 
             $nuevos++;
@@ -462,6 +494,43 @@ class WhatsAppController extends Controller
                 $contactoReal->fusionarDesde($contactoLid);
             }
         }
+    }
+
+    /**
+     * Extraer datos de respuesta/cita de un mensaje de WhatsApp.
+     *
+     * @return array{id: string|null, contenido: string|null, tipo: string|null}
+     */
+    private function extraerDatosRespuesta(array $msg): array
+    {
+        $message = $msg['message'] ?? [];
+        $contextInfo = $message['extendedTextMessage']['contextInfo']
+            ?? $message['imageMessage']['contextInfo']
+            ?? $message['videoMessage']['contextInfo']
+            ?? $message['audioMessage']['contextInfo']
+            ?? $message['documentMessage']['contextInfo']
+            ?? null;
+
+        if (! $contextInfo || empty($contextInfo['stanzaId'])) {
+            return ['id' => null, 'contenido' => null, 'tipo' => null];
+        }
+
+        $quotedMessage = $contextInfo['quotedMessage'] ?? [];
+        $quotedContent = $quotedMessage['conversation']
+            ?? $quotedMessage['extendedTextMessage']['text']
+            ?? $quotedMessage['imageMessage']['caption']
+            ?? '[Media]';
+
+        // Determinar si el mensaje citado fue enviado por nosotros
+        $participant = $contextInfo['participant'] ?? null;
+        $remoteJid = $msg['key']['remoteJid'] ?? '';
+        $quotedFromMe = $participant !== null && $participant !== $remoteJid;
+
+        return [
+            'id' => $contextInfo['stanzaId'],
+            'contenido' => mb_substr($quotedContent, 0, 500),
+            'tipo' => $quotedFromMe ? 'enviado' : 'recibido',
+        ];
     }
 
     /**
