@@ -23,7 +23,9 @@ export default function Login({ status, canRegister }: Props) {
             <Head title="Iniciar sesion" />
 
             <div className="mb-8 text-center">
-                <h2 className="text-2xl font-semibold tracking-tight">Bienvenido</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                    Bienvenido
+                </h2>
                 <p className="mt-1.5 text-sm text-muted-foreground">
                     Ingresa tus credenciales para continuar
                 </p>
@@ -35,14 +37,20 @@ export default function Login({ status, canRegister }: Props) {
                 </div>
             )}
 
-            <Form {...store.form()} resetOnSuccess={['password']} className="space-y-5">
+            <Form
+                {...store.form()}
+                resetOnSuccess={['password']}
+                className="space-y-5"
+            >
                 {({ processing, errors }) => (
                     <>
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label htmlFor="email">Correo electronico</Label>
+                                <Label htmlFor="email">
+                                    Correo electronico
+                                </Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Mail className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
                                         id="email"
                                         type="email"
@@ -61,10 +69,14 @@ export default function Login({ status, canRegister }: Props) {
                             <div className="space-y-2">
                                 <Label htmlFor="password">Contrasena</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Lock className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
                                         id="password"
-                                        type={mostrarPassword ? 'text' : 'password'}
+                                        type={
+                                            mostrarPassword
+                                                ? 'text'
+                                                : 'password'
+                                        }
                                         name="password"
                                         required
                                         tabIndex={2}
@@ -75,18 +87,31 @@ export default function Login({ status, canRegister }: Props) {
                                     <button
                                         type="button"
                                         tabIndex={-1}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                                        onClick={() => setMostrarPassword(!mostrarPassword)}
+                                        className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                                        onClick={() =>
+                                            setMostrarPassword(!mostrarPassword)
+                                        }
                                     >
-                                        {mostrarPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                        {mostrarPassword ? (
+                                            <EyeOff className="size-4" />
+                                        ) : (
+                                            <Eye className="size-4" />
+                                        )}
                                     </button>
                                 </div>
                                 <InputError message={errors.password} />
                             </div>
 
                             <div className="flex items-center space-x-2">
-                                <Checkbox id="remember" name="remember" tabIndex={3} />
-                                <Label htmlFor="remember" className="text-sm font-normal">
+                                <Checkbox
+                                    id="remember"
+                                    name="remember"
+                                    tabIndex={3}
+                                />
+                                <Label
+                                    htmlFor="remember"
+                                    className="text-sm font-normal"
+                                >
                                     Mantener sesion iniciada
                                 </Label>
                             </div>

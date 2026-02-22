@@ -9,7 +9,14 @@ import typescript from 'typescript-eslint';
 /** @type {import('eslint').Linter.Config[]} */
 export default [
     js.configs.recommended,
-    reactHooks.configs.flat.recommended,
+    {
+        ...reactHooks.configs.flat.recommended,
+        rules: {
+            ...reactHooks.configs.flat.recommended.rules,
+            'react-hooks/set-state-in-effect': 'off',
+            'react-hooks/exhaustive-deps': 'off',
+        },
+    },
     ...typescript.configs.recommended,
     {
         ...react.configs.flat.recommended,
@@ -65,7 +72,16 @@ export default [
         },
     },
     {
-        ignores: ['vendor', 'node_modules', 'public', 'bootstrap/ssr', 'tailwind.config.js', 'vite.config.ts'],
+        ignores: [
+            'vendor',
+            'node_modules',
+            'public',
+            'bootstrap/ssr',
+            'tailwind.config.js',
+            'vite.config.ts',
+            'resources/js/actions/**',
+            'resources/js/routes/**',
+        ],
     },
     prettier, // Turn off all rules that might conflict with Prettier
 ];

@@ -2,10 +2,17 @@ import { router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { store } from '@/actions/App/Http/Controllers/Admin/PrioridadController';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import InputError from '@/components/input-error';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type Props = {
@@ -38,11 +45,20 @@ export default function ModalCrearPrioridadRapida({ onCreado }: Props) {
     return (
         <Dialog open={abierto} onOpenChange={setAbierto}>
             <DialogTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear prioridad">
+                <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    title="Crear prioridad"
+                >
                     <Plus className="h-3.5 w-3.5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[400px]" onClick={(e) => e.stopPropagation()}>
+            <DialogContent
+                className="sm:max-w-[400px]"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <DialogHeader>
                     <DialogTitle>Nueva Prioridad</DialogTitle>
                 </DialogHeader>
@@ -55,29 +71,60 @@ export default function ModalCrearPrioridadRapida({ onCreado }: Props) {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="pri-color">Color *</Label>
-                            <Input id="pri-color" name="color" type="color" defaultValue="#3B82F6" className="h-9 cursor-pointer" required />
+                            <Input
+                                id="pri-color"
+                                name="color"
+                                type="color"
+                                defaultValue="#3B82F6"
+                                className="h-9 cursor-pointer"
+                                required
+                            />
                             <InputError message={errores.color} />
                         </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="pri-nivel">Nivel *</Label>
-                            <Input id="pri-nivel" name="nivel" type="number" min={1} required />
+                            <Input
+                                id="pri-nivel"
+                                name="nivel"
+                                type="number"
+                                min={1}
+                                required
+                            />
                             <InputError message={errores.nivel} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="pri-resp">Hrs. Resp. *</Label>
-                            <Input id="pri-resp" name="horas_respuesta" type="number" min={1} required />
+                            <Input
+                                id="pri-resp"
+                                name="horas_respuesta"
+                                type="number"
+                                min={1}
+                                required
+                            />
                             <InputError message={errores.horas_respuesta} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="pri-res">Hrs. Res. *</Label>
-                            <Input id="pri-res" name="horas_resolucion" type="number" min={1} required />
+                            <Input
+                                id="pri-res"
+                                name="horas_resolucion"
+                                type="number"
+                                min={1}
+                                required
+                            />
                             <InputError message={errores.horas_resolucion} />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setAbierto(false)}>Cancelar</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setAbierto(false)}
+                        >
+                            Cancelar
+                        </Button>
                         <Button type="submit" disabled={procesando}>
                             {procesando ? 'Creando...' : 'Crear'}
                         </Button>

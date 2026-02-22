@@ -17,5 +17,12 @@ export function AppShell({ children, variant = 'header' }: Props) {
         );
     }
 
-    return <SidebarProvider defaultOpen={isOpen} className="md:max-h-svh md:overflow-hidden">{children}</SidebarProvider>;
+    return (
+        <SidebarProvider
+            defaultOpen={isOpen}
+            className="md:max-h-svh md:overflow-hidden"
+        >
+            {children}
+        </SidebarProvider>
+    );
 }

@@ -1,4 +1,14 @@
-import { Bot, Check, CheckCheck, Download, FileText, Mic, Pause, Play, Reply } from 'lucide-react';
+import {
+    Bot,
+    Check,
+    CheckCheck,
+    Download,
+    FileText,
+    Mic,
+    Pause,
+    Play,
+    Reply,
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Mensaje } from '@/pages/admin/whatsapp/index';
 
@@ -8,18 +18,24 @@ type Props = {
     onResponder?: (mensaje: Mensaje) => void;
 };
 
-export default function MessageBubble({ mensaje, onMediaClick, onResponder }: Props) {
+export default function MessageBubble({
+    mensaje,
+    onMediaClick,
+    onResponder,
+}: Props) {
     const esEnviado = mensaje.tipo === 'enviado';
     const esBot = mensaje.es_bot === true;
     const tieneMedia = mensaje.media_url && mensaje.media_tipo;
 
     return (
-        <div className={`group flex ${esEnviado ? 'justify-end' : 'justify-start'}`}>
+        <div
+            className={`group flex ${esEnviado ? 'justify-end' : 'justify-start'}`}
+        >
             {/* Botón reply - aparece al hover (lado izquierdo para enviados) */}
             {esEnviado && onResponder && (
                 <button
                     onClick={() => onResponder(mensaje)}
-                    className="self-center mr-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-muted"
+                    className="mr-1 self-center rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
                     title="Responder"
                 >
                     <Reply className="h-4 w-4 text-muted-foreground" />
@@ -28,21 +44,31 @@ export default function MessageBubble({ mensaje, onMediaClick, onResponder }: Pr
             <div
                 className={`relative max-w-[70%] rounded-lg px-3 py-2 ${
                     esEnviado
-                        ? 'bg-blue-50 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-700/40'
+                        ? 'border border-blue-200 bg-blue-50 dark:border-blue-700/40 dark:bg-blue-900/30'
                         : 'bg-muted'
                 }`}
             >
                 {/* Quote box - mensaje citado */}
                 {mensaje.respuesta_a && (
-                    <div className={`mb-2 rounded-md bg-background/60 dark:bg-background/30 p-2 border-l-2 ${
-                        mensaje.respuesta_a.tipo === 'enviado' ? 'border-blue-500' : 'border-primary'
-                    }`}>
-                        <p className={`text-[11px] font-medium ${
-                            mensaje.respuesta_a.tipo === 'enviado' ? 'text-blue-600 dark:text-blue-400' : 'text-primary'
-                        }`}>
-                            {mensaje.respuesta_a.tipo === 'enviado' ? 'Tú' : 'Contacto'}
+                    <div
+                        className={`mb-2 rounded-md border-l-2 bg-background/60 p-2 dark:bg-background/30 ${
+                            mensaje.respuesta_a.tipo === 'enviado'
+                                ? 'border-blue-500'
+                                : 'border-primary'
+                        }`}
+                    >
+                        <p
+                            className={`text-[11px] font-medium ${
+                                mensaje.respuesta_a.tipo === 'enviado'
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-primary'
+                            }`}
+                        >
+                            {mensaje.respuesta_a.tipo === 'enviado'
+                                ? 'Tú'
+                                : 'Contacto'}
                         </p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
                             {mensaje.respuesta_a.contenido}
                         </p>
                     </div>
@@ -50,9 +76,11 @@ export default function MessageBubble({ mensaje, onMediaClick, onResponder }: Pr
 
                 {/* Etiqueta Bot IA */}
                 {esBot && (
-                    <div className="flex items-center gap-1.5 mb-2">
+                    <div className="mb-2 flex items-center gap-1.5">
                         <Bot className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">Bot IA</span>
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            Bot IA
+                        </span>
                     </div>
                 )}
 
@@ -67,33 +95,37 @@ export default function MessageBubble({ mensaje, onMediaClick, onResponder }: Pr
                 )}
 
                 {/* Contenido del mensaje (texto) */}
-                {mensaje.contenido && !isMediaPlaceholder(mensaje.contenido) && (
-                    <p className={`text-sm whitespace-pre-wrap break-words ${tieneMedia ? 'mt-2' : ''}`}>
-                        {mensaje.contenido}
-                    </p>
-                )}
+                {mensaje.contenido &&
+                    !isMediaPlaceholder(mensaje.contenido) && (
+                        <p
+                            className={`text-sm break-words whitespace-pre-wrap ${tieneMedia ? 'mt-2' : ''}`}
+                        >
+                            {mensaje.contenido}
+                        </p>
+                    )}
 
                 {/* Hora y estado */}
                 <div
                     className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
-                        esEnviado ? 'text-blue-600/70 dark:text-blue-400/70' : 'text-muted-foreground'
+                        esEnviado
+                            ? 'text-blue-600/70 dark:text-blue-400/70'
+                            : 'text-muted-foreground'
                     }`}
                 >
                     <span>{mensaje.hora}</span>
-                    {esEnviado && (
-                        mensaje.leido ? (
+                    {esEnviado &&
+                        (mensaje.leido ? (
                             <CheckCheck className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                         ) : (
                             <Check className="h-3 w-3" />
-                        )
-                    )}
+                        ))}
                 </div>
             </div>
             {/* Botón reply - aparece al hover (lado derecho para recibidos) */}
             {!esEnviado && onResponder && (
                 <button
                     onClick={() => onResponder(mensaje)}
-                    className="self-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-muted"
+                    className="ml-1 self-center rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-muted"
                     title="Responder"
                 >
                     <Reply className="h-4 w-4 text-muted-foreground" />
@@ -148,21 +180,27 @@ function AudioPlayer({ url }: { url: string }) {
         setVelocidad(nueva);
     }, [velocidad]);
 
-    const seekTo = useCallback((clientX: number) => {
-        const bar = progressRef.current;
-        const audio = audioRef.current;
-        if (!bar || !audio || !duration) return;
-        const rect = bar.getBoundingClientRect();
-        const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-        const ratio = x / rect.width;
-        audio.currentTime = ratio * duration;
-        setCurrentTime(audio.currentTime);
-    }, [duration]);
+    const seekTo = useCallback(
+        (clientX: number) => {
+            const bar = progressRef.current;
+            const audio = audioRef.current;
+            if (!bar || !audio || !duration) return;
+            const rect = bar.getBoundingClientRect();
+            const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+            const ratio = x / rect.width;
+            audio.currentTime = ratio * duration;
+            setCurrentTime(audio.currentTime);
+        },
+        [duration],
+    );
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
-        setIsDragging(true);
-        seekTo(e.clientX);
-    }, [seekTo]);
+    const handleMouseDown = useCallback(
+        (e: React.MouseEvent) => {
+            setIsDragging(true);
+            seekTo(e.clientX);
+        },
+        [seekTo],
+    );
 
     useEffect(() => {
         if (!isDragging) return;
@@ -191,8 +229,12 @@ function AudioPlayer({ url }: { url: string }) {
         function onTimeUpdate() {
             if (!isDragging) setCurrentTime(audio!.currentTime);
         }
-        function onPlay() { setIsPlaying(true); }
-        function onPause() { setIsPlaying(false); }
+        function onPlay() {
+            setIsPlaying(true);
+        }
+        function onPause() {
+            setIsPlaying(false);
+        }
         function onEnded() {
             setIsPlaying(false);
             setCurrentTime(0);
@@ -218,24 +260,24 @@ function AudioPlayer({ url }: { url: string }) {
     }, [isDragging]);
 
     return (
-        <div className="flex items-center gap-2 min-w-56 py-1">
+        <div className="flex min-w-56 items-center gap-2 py-1">
             <audio ref={audioRef} src={url} preload="metadata" />
 
             <button
                 onClick={togglePlay}
-                className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 hover:bg-primary/20 transition-colors"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 transition-colors hover:bg-primary/20"
             >
                 {isPlaying ? (
                     <Pause className="h-5 w-5 text-primary" />
                 ) : (
-                    <Play className="h-5 w-5 text-primary ml-0.5" />
+                    <Play className="ml-0.5 h-5 w-5 text-primary" />
                 )}
             </button>
 
-            <div className="flex-1 flex flex-col gap-1 min-w-0">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div
                     ref={progressRef}
-                    className="relative h-1.5 rounded-full cursor-pointer group"
+                    className="group relative h-1.5 cursor-pointer rounded-full"
                     onMouseDown={handleMouseDown}
                 >
                     <div className="absolute inset-0 rounded-full bg-primary/15" />
@@ -244,7 +286,7 @@ function AudioPlayer({ url }: { url: string }) {
                         style={{ width: `${progreso}%` }}
                     />
                     <div
-                        className={`absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-primary shadow-sm transition-[left] ${isDragging ? 'scale-125' : 'scale-100 group-hover:scale-110'}`}
+                        className={`absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-primary shadow-sm transition-[left] ${isDragging ? 'scale-125' : 'scale-100 group-hover:scale-110'}`}
                         style={{ left: `calc(${progreso}% - 6px)` }}
                     />
                 </div>
@@ -253,13 +295,12 @@ function AudioPlayer({ url }: { url: string }) {
                     <span className="text-[10px] text-muted-foreground tabular-nums">
                         {isPlaying || currentTime > 0
                             ? formatDuration(currentTime)
-                            : formatDuration(duration)
-                        }
+                            : formatDuration(duration)}
                     </span>
                     {isPlaying && (
                         <button
                             onClick={cambiarVelocidad}
-                            className="text-[10px] font-semibold px-1 rounded text-primary hover:opacity-70 transition-opacity"
+                            className="rounded px-1 text-[10px] font-semibold text-primary transition-opacity hover:opacity-70"
                         >
                             {velocidad}x
                         </button>
@@ -282,14 +323,19 @@ type MediaContentProps = {
     onMediaClick?: (url: string, tipo: 'imagen' | 'video') => void;
 };
 
-function MediaContent({ url, tipo, contenido, onMediaClick }: MediaContentProps) {
+function MediaContent({
+    url,
+    tipo,
+    contenido,
+    onMediaClick,
+}: MediaContentProps) {
     switch (tipo) {
         case 'imagen':
             return (
                 <img
                     src={url}
                     alt="Imagen"
-                    className="max-w-full rounded-md max-h-64 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                    className="max-h-64 max-w-full cursor-pointer rounded-md object-contain transition-opacity hover:opacity-90"
                     loading="lazy"
                     onClick={() => onMediaClick?.(url, 'imagen')}
                 />
@@ -300,7 +346,7 @@ function MediaContent({ url, tipo, contenido, onMediaClick }: MediaContentProps)
                 <img
                     src={url}
                     alt="Sticker"
-                    className="max-w-32 max-h-32 object-contain"
+                    className="max-h-32 max-w-32 object-contain"
                     loading="lazy"
                 />
             );
@@ -308,17 +354,17 @@ function MediaContent({ url, tipo, contenido, onMediaClick }: MediaContentProps)
         case 'video':
             return (
                 <div
-                    className="relative cursor-pointer group"
+                    className="group relative cursor-pointer"
                     onClick={() => onMediaClick?.(url, 'video')}
                 >
                     <video
                         src={url}
-                        className="max-w-full rounded-md max-h-64"
+                        className="max-h-64 max-w-full rounded-md"
                         preload="metadata"
                     />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-md group-hover:bg-black/30 transition-colors">
-                        <div className="h-12 w-12 rounded-full bg-black/50 flex items-center justify-center">
-                            <Play className="h-6 w-6 text-white ml-0.5" />
+                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/20 transition-colors group-hover:bg-black/30">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50">
+                            <Play className="ml-0.5 h-6 w-6 text-white" />
                         </div>
                     </div>
                 </div>
@@ -334,16 +380,20 @@ function MediaContent({ url, tipo, contenido, onMediaClick }: MediaContentProps)
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-2 rounded-md bg-background/50 hover:bg-background/80 transition-colors"
+                    className="flex items-center gap-3 rounded-md bg-background/50 p-2 transition-colors hover:bg-background/80"
                 >
-                    <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10">
                         <FileText className="h-5 w-5 text-primary" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{nombreArchivo}</p>
-                        <p className="text-xs text-muted-foreground">Documento</p>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                            {nombreArchivo}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            Documento
+                        </p>
                     </div>
-                    <Download className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </a>
             );
         }

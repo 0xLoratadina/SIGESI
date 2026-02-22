@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -6,7 +7,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 
 type Props = {
     abierto: boolean;
@@ -30,7 +30,12 @@ export default function DialogoConfirmacion({
     variante = 'normal',
 }: Props) {
     return (
-        <Dialog open={abierto} onOpenChange={(v) => { if (!v) onCerrar(); }}>
+        <Dialog
+            open={abierto}
+            onOpenChange={(v) => {
+                if (!v) onCerrar();
+            }}
+        >
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>{titulo}</DialogTitle>
@@ -41,7 +46,11 @@ export default function DialogoConfirmacion({
                         {textoCancelar}
                     </Button>
                     <Button
-                        variant={variante === 'destructiva' ? 'destructive' : 'default'}
+                        variant={
+                            variante === 'destructiva'
+                                ? 'destructive'
+                                : 'default'
+                        }
                         onClick={onConfirmar}
                     >
                         {textoConfirmar}

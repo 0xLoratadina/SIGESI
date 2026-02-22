@@ -1,14 +1,45 @@
 import { Head, Link, router } from '@inertiajs/react';
+import {
+    AlertCircle,
+    CheckCircle2,
+    Clock,
+    TicketCheck,
+    Inbox,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock, TicketCheck, Inbox } from 'lucide-react';
 import ModalCrearTicket from '@/components/modal-crear-ticket';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
-import { obtenerClaseEstado, obtenerEtiquetaEstado, formatearFecha, formatearFechaCorta } from '@/lib/ticket-helpers';
+import {
+    obtenerClaseEstado,
+    obtenerEtiquetaEstado,
+    formatearFecha,
+    formatearFechaCorta,
+} from '@/lib/ticket-helpers';
 import { dashboard } from '@/routes';
-import type { BreadcrumbItem, CatalogosDashboard, DatosPaginados, Estadisticas, EstadoTicket, Ticket } from '@/types';
+import type {
+    BreadcrumbItem,
+    CatalogosDashboard,
+    DatosPaginados,
+    Estadisticas,
+    EstadoTicket,
+    Ticket,
+} from '@/types';
 
 type Props = {
     estadisticas: Estadisticas;
@@ -36,14 +67,23 @@ function useEsMovil() {
     return esMovil;
 }
 
-export default function Dashboard({ estadisticas, tickets, filtroEstado, estados, catalogos }: Props) {
+export default function Dashboard({
+    estadisticas,
+    tickets,
+    filtroEstado,
+    estados,
+    catalogos,
+}: Props) {
     const esMovil = useEsMovil();
 
     const manejarFiltroEstado = (valor: string) => {
         const params: Record<string, string> = {};
         if (valor !== 'todos') params.estado = valor;
         if (esMovil) params.por_pagina = '10';
-        router.get(dashboard().url, params, { preserveState: true, preserveScroll: true });
+        router.get(dashboard().url, params, {
+            preserveState: true,
+            preserveScroll: true,
+        });
     };
 
     useEffect(() => {
@@ -53,7 +93,10 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
             const params: Record<string, string> = {};
             if (filtroEstado) params.estado = filtroEstado;
             params.por_pagina = String(porPaginaEsperada);
-            router.get(dashboard().url, params, { preserveState: true, preserveScroll: true });
+            router.get(dashboard().url, params, {
+                preserveState: true,
+                preserveScroll: true,
+            });
         }
     }, [esMovil]);
 
@@ -67,7 +110,9 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
                     <TarjetaEstadistica
                         titulo="Total Tickets"
                         valor={estadisticas.total}
-                        icono={<TicketCheck className="size-5 text-muted-foreground" />}
+                        icono={
+                            <TicketCheck className="size-5 text-muted-foreground" />
+                        }
                     />
                     <TarjetaEstadistica
                         titulo="Abiertos"
@@ -82,17 +127,24 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
                     <TarjetaEstadistica
                         titulo="Resueltos"
                         valor={estadisticas.resueltos}
-                        icono={<CheckCircle2 className="size-5 text-green-500" />}
+                        icono={
+                            <CheckCircle2 className="size-5 text-green-500" />
+                        }
                     />
                 </div>
 
                 {/* Filtro y tabla de tickets */}
                 <Card className="flex min-w-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
                     <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 pb-4">
-                        <CardTitle className="text-base font-medium">Tickets recientes</CardTitle>
+                        <CardTitle className="text-base font-medium">
+                            Tickets recientes
+                        </CardTitle>
                         <div className="flex items-center gap-2">
                             <ModalCrearTicket catalogos={catalogos} />
-                            <Select value={filtroEstado ?? 'todos'} onValueChange={manejarFiltroEstado}>
+                            <Select
+                                value={filtroEstado ?? 'todos'}
+                                onValueChange={manejarFiltroEstado}
+                            >
                                 <SelectTrigger className="w-[140px] sm:w-[180px]">
                                     <SelectValue placeholder="Filtrar por estado" />
                                 </SelectTrigger>
@@ -111,85 +163,140 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
                         {tickets.data.length > 0 ? (
                             <>
                                 <div className="md:scrollbar-thin md:min-h-0 md:flex-1 md:overflow-y-scroll">
-                                <Table className="table-fixed">
-                                    <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
-                                        <TableRow>
-                                            <TableHead className="hidden w-[9%] sm:table-cell">#</TableHead>
-                                            <TableHead className="w-[42%] sm:w-[30%]">Titulo</TableHead>
-                                            <TableHead className="w-[30%] sm:w-[10%]">Estado</TableHead>
-                                            <TableHead className="hidden w-[9%] sm:table-cell">Prioridad</TableHead>
-                                            <TableHead className="hidden w-[14%] md:table-cell">Categoria</TableHead>
-                                            <TableHead className="hidden w-[20%] lg:table-cell">Solicitante</TableHead>
-                                            <TableHead className="w-[28%] sm:w-[8%]">Fecha</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {tickets.data.map((ticket) => (
-                                            <TableRow key={ticket.id}>
-                                                <TableCell className="hidden font-mono text-xs sm:table-cell">
-                                                    {ticket.numero}
-                                                </TableCell>
-                                                <TableCell className="truncate font-medium">
-                                                    {ticket.titulo}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <span className={`inline-flex w-[70px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium sm:w-[90px] sm:px-2.5 ${obtenerClaseEstado(ticket.estado)}`}>
-                                                        {obtenerEtiquetaEstado(ticket.estado)}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="hidden sm:table-cell">
-                                                    <span className="inline-flex items-center gap-1.5 text-xs">
-                                                        <span
-                                                            className="inline-block size-2 rounded-full"
-                                                            style={{ backgroundColor: ticket.prioridad?.color }}
-                                                        />
-                                                        {ticket.prioridad?.nombre}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                                                    {ticket.categoria?.nombre}
-                                                </TableCell>
-                                                <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
-                                                    {ticket.solicitante?.name}
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground">
-                                                    <span className="sm:hidden">{formatearFechaCorta(ticket.created_at)}</span>
-                                                    <span className="hidden sm:inline">{formatearFecha(ticket.created_at)}</span>
-                                                </TableCell>
+                                    <Table className="table-fixed">
+                                        <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
+                                            <TableRow>
+                                                <TableHead className="hidden w-[9%] sm:table-cell">
+                                                    #
+                                                </TableHead>
+                                                <TableHead className="w-[42%] sm:w-[30%]">
+                                                    Titulo
+                                                </TableHead>
+                                                <TableHead className="w-[30%] sm:w-[10%]">
+                                                    Estado
+                                                </TableHead>
+                                                <TableHead className="hidden w-[9%] sm:table-cell">
+                                                    Prioridad
+                                                </TableHead>
+                                                <TableHead className="hidden w-[14%] md:table-cell">
+                                                    Categoria
+                                                </TableHead>
+                                                <TableHead className="hidden w-[20%] lg:table-cell">
+                                                    Solicitante
+                                                </TableHead>
+                                                <TableHead className="w-[28%] sm:w-[8%]">
+                                                    Fecha
+                                                </TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {tickets.data.map((ticket) => (
+                                                <TableRow key={ticket.id}>
+                                                    <TableCell className="hidden font-mono text-xs sm:table-cell">
+                                                        {ticket.numero}
+                                                    </TableCell>
+                                                    <TableCell className="truncate font-medium">
+                                                        {ticket.titulo}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <span
+                                                            className={`inline-flex w-[70px] items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium sm:w-[90px] sm:px-2.5 ${obtenerClaseEstado(ticket.estado)}`}
+                                                        >
+                                                            {obtenerEtiquetaEstado(
+                                                                ticket.estado,
+                                                            )}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="hidden sm:table-cell">
+                                                        <span className="inline-flex items-center gap-1.5 text-xs">
+                                                            <span
+                                                                className="inline-block size-2 rounded-full"
+                                                                style={{
+                                                                    backgroundColor:
+                                                                        ticket
+                                                                            .prioridad
+                                                                            ?.color,
+                                                                }}
+                                                            />
+                                                            {
+                                                                ticket.prioridad
+                                                                    ?.nombre
+                                                            }
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                                                        {
+                                                            ticket.categoria
+                                                                ?.nombre
+                                                        }
+                                                    </TableCell>
+                                                    <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
+                                                        {
+                                                            ticket.solicitante
+                                                                ?.name
+                                                        }
+                                                    </TableCell>
+                                                    <TableCell className="text-xs text-muted-foreground">
+                                                        <span className="sm:hidden">
+                                                            {formatearFechaCorta(
+                                                                ticket.created_at,
+                                                            )}
+                                                        </span>
+                                                        <span className="hidden sm:inline">
+                                                            {formatearFecha(
+                                                                ticket.created_at,
+                                                            )}
+                                                        </span>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
 
                                 {/* Paginacion */}
                                 {tickets.last_page > 1 && (
-                                    <div className="flex flex-col items-center gap-3 border-t pt-4 mt-4 sm:flex-row sm:justify-between">
+                                    <div className="mt-4 flex flex-col items-center gap-3 border-t pt-4 sm:flex-row sm:justify-between">
                                         <p className="text-xs text-muted-foreground sm:text-sm">
-                                            Mostrando {tickets.from} a {tickets.to} de {tickets.total}
+                                            Mostrando {tickets.from} a{' '}
+                                            {tickets.to} de {tickets.total}
                                         </p>
                                         <div className="flex gap-1 sm:gap-2">
-                                            {tickets.links.map((enlace, indice) => {
-                                                const esPrevNext = indice === 0 || indice === tickets.links.length - 1;
-                                                return (
-                                                    <Link
-                                                        key={indice}
-                                                        href={enlace.url ?? '#'}
-                                                        preserveState
-                                                        preserveScroll
-                                                        className={`inline-flex h-8 items-center justify-center rounded-md text-xs font-medium transition-colors ${
-                                                            esPrevNext ? 'px-2 sm:px-3' : 'px-3'
-                                                        } ${
-                                                            enlace.active
-                                                                ? 'bg-primary text-primary-foreground'
-                                                                : enlace.url
-                                                                  ? 'border hover:bg-accent'
-                                                                  : 'text-muted-foreground opacity-50 pointer-events-none'
-                                                        }`}
-                                                        dangerouslySetInnerHTML={{ __html: enlace.label }}
-                                                    />
-                                                );
-                                            })}
+                                            {tickets.links.map(
+                                                (enlace, indice) => {
+                                                    const esPrevNext =
+                                                        indice === 0 ||
+                                                        indice ===
+                                                            tickets.links
+                                                                .length -
+                                                                1;
+                                                    return (
+                                                        <Link
+                                                            key={indice}
+                                                            href={
+                                                                enlace.url ??
+                                                                '#'
+                                                            }
+                                                            preserveState
+                                                            preserveScroll
+                                                            className={`inline-flex h-8 items-center justify-center rounded-md text-xs font-medium transition-colors ${
+                                                                esPrevNext
+                                                                    ? 'px-2 sm:px-3'
+                                                                    : 'px-3'
+                                                            } ${
+                                                                enlace.active
+                                                                    ? 'bg-primary text-primary-foreground'
+                                                                    : enlace.url
+                                                                      ? 'border hover:bg-accent'
+                                                                      : 'pointer-events-none text-muted-foreground opacity-50'
+                                                            }`}
+                                                            dangerouslySetInnerHTML={{
+                                                                __html: enlace.label,
+                                                            }}
+                                                        />
+                                                    );
+                                                },
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -207,11 +314,21 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
     );
 }
 
-function TarjetaEstadistica({ titulo, valor, icono }: { titulo: string; valor: number; icono: React.ReactNode }) {
+function TarjetaEstadistica({
+    titulo,
+    valor,
+    icono,
+}: {
+    titulo: string;
+    valor: number;
+    icono: React.ReactNode;
+}) {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{titulo}</CardTitle>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {titulo}
+                </CardTitle>
                 {icono}
             </CardHeader>
             <CardContent>

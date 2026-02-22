@@ -1,8 +1,22 @@
 import type { User } from './auth';
 
-export type EstadoTicket = 'Abierto' | 'Asignado' | 'EnProgreso' | 'EnEspera' | 'Resuelto' | 'Cerrado' | 'Cancelado';
+export type EstadoTicket =
+    | 'Abierto'
+    | 'Asignado'
+    | 'EnProgreso'
+    | 'EnEspera'
+    | 'Resuelto'
+    | 'Cerrado'
+    | 'Cancelado';
 export type Canal = 'Web' | 'WhatsApp' | 'Telefono' | 'Correo' | 'Presencial';
-export type Dia = 'Lunes' | 'Martes' | 'Miercoles' | 'Jueves' | 'Viernes' | 'Sabado' | 'Domingo';
+export type Dia =
+    | 'Lunes'
+    | 'Martes'
+    | 'Miercoles'
+    | 'Jueves'
+    | 'Viernes'
+    | 'Sabado'
+    | 'Domingo';
 
 export type HorarioAuxiliar = {
     id: number;
@@ -68,7 +82,10 @@ export type CatalogosDashboard = {
     areas: Pick<Area, 'id' | 'nombre'>[];
     categorias: Pick<Categoria, 'id' | 'nombre' | 'padre_id'>[];
     prioridades: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel'>[];
-    ubicaciones: Pick<Ubicacion, 'id' | 'nombre' | 'edificio' | 'piso' | 'area_id'>[];
+    ubicaciones: Pick<
+        Ubicacion,
+        'id' | 'nombre' | 'edificio' | 'piso' | 'area_id'
+    >[];
     canales: Canal[];
     usuarios: { id: number; name: string; email: string }[];
 };

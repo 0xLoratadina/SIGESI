@@ -62,7 +62,9 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={elementosNav} />
-                {esAdmin && <NavMain items={elementosAdmin} label="Administración" />}
+                {esAdmin && (
+                    <NavMain items={elementosAdmin} label="Administración" />
+                )}
             </SidebarContent>
 
             <SidebarFooter>

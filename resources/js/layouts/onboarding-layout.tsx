@@ -1,6 +1,10 @@
 import AppLogoIcon from '@/components/app-logo-icon';
 
-export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
+export default function OnboardingLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
     return (
         <div className="flex min-h-svh flex-col items-center justify-center bg-background px-4 py-8 md:px-8 md:py-12">
             <div className="mb-8 flex flex-col items-center gap-2">

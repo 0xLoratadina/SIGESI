@@ -3,11 +3,10 @@ import { Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { store } from '@/actions/App/Http/Controllers/TicketController';
 import InputError from '@/components/input-error';
-import ModalCrearCategoriaRapida from '@/components/modal-crear-categoria-rapida';
 import ModalCrearAreaRapida from '@/components/modal-crear-area-rapida';
+import ModalCrearCategoriaRapida from '@/components/modal-crear-categoria-rapida';
 import ModalCrearPrioridadRapida from '@/components/modal-crear-prioridad-rapida';
 import ModalCrearUbicacionRapida from '@/components/modal-crear-ubicacion-rapida';
-import ZonaAdjuntos from '@/components/zona-adjuntos';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -31,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import ZonaAdjuntos from '@/components/zona-adjuntos';
 import type { CatalogosDashboard, SharedData } from '@/types';
 
 type Props = {
@@ -44,7 +44,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
     const esAdmin = auth.user.rol === 'Administrador';
     const esSolicitante = auth.user.rol === 'Solicitante';
 
-    const { data, setData, post, processing, errors, reset, progress } = useForm({
+    const { data, setData, processing, errors, reset, progress } = useForm({
         titulo: '',
         descripcion: '',
         area_id: '',
@@ -56,32 +56,15 @@ export default function ModalCrearTicket({ catalogos }: Props) {
         adjuntos: [] as File[],
     });
 
-    const categoriasPadre = catalogos?.categorias.filter((c) => !c.padre_id) ?? [];
-    const categoriasHijas = catalogos?.categorias.filter((c) => c.padre_id) ?? [];
+    const categoriasPadre =
+        catalogos?.categorias.filter((c) => !c.padre_id) ?? [];
+    const categoriasHijas =
+        catalogos?.categorias.filter((c) => c.padre_id) ?? [];
 
     function recargarCatalogos() {
         router.reload({ only: ['catalogos'] });
     }
 
-    function enviar(e: FormEvent) {
-        e.preventDefault();
-        setData('adjuntos', adjuntos);
-
-        // Need to use a slight delay to ensure setData has taken effect
-        setTimeout(() => {
-            post(store.url(), {
-                preserveScroll: true,
-                forceFormData: true,
-                onSuccess: () => {
-                    setAbierto(false);
-                    setAdjuntos([]);
-                    reset();
-                },
-            });
-        }, 0);
-    }
-
-    // Workaround: submit directly using router.post with FormData
     function enviarFormulario(e: FormEvent) {
         e.preventDefault();
         const formData = new FormData();
@@ -90,10 +73,13 @@ export default function ModalCrearTicket({ catalogos }: Props) {
 
         if (!esSolicitante) {
             if (data.area_id) formData.append('area_id', data.area_id);
-            if (data.categoria_id) formData.append('categoria_id', data.categoria_id);
-            if (data.prioridad_id) formData.append('prioridad_id', data.prioridad_id);
+            if (data.categoria_id)
+                formData.append('categoria_id', data.categoria_id);
+            if (data.prioridad_id)
+                formData.append('prioridad_id', data.prioridad_id);
             if (data.canal) formData.append('canal', data.canal);
-            if (data.ubicacion_id) formData.append('ubicacion_id', data.ubicacion_id);
+            if (data.ubicacion_id)
+                formData.append('ubicacion_id', data.ubicacion_id);
         }
 
         if (esAdmin && data.solicitante_id) {
@@ -112,7 +98,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                 setAdjuntos([]);
                 reset();
             },
-            onError: (errs) => {
+            onError: () => {
                 // errors are automatically handled by Inertia
             },
         });
@@ -154,7 +140,9 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                             <Input
                                 id="titulo"
                                 value={data.titulo}
-                                onChange={(e) => setData('titulo', e.target.value)}
+                                onChange={(e) =>
+                                    setData('titulo', e.target.value)
+                                }
                                 placeholder="Describe brevemente el problema"
                                 required
                                 maxLength={255}
@@ -167,7 +155,9 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                             <Textarea
                                 id="descripcion"
                                 value={data.descripcion}
-                                onChange={(e) => setData('descripcion', e.target.value)}
+                                onChange={(e) =>
+                                    setData('descripcion', e.target.value)
+                                }
                                 placeholder="Explica el problema en detalle..."
                                 rows={4}
                                 required
@@ -182,21 +172,39 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                     <div className="grid gap-2">
                                         <div className="flex items-center justify-between">
                                             <Label>Area</Label>
-                                            {esAdmin && <ModalCrearAreaRapida onCreado={recargarCatalogos} />}
+                                            {esAdmin && (
+                                                <ModalCrearAreaRapida
+                                                    onCreado={recargarCatalogos}
+                                                />
+                                            )}
                                         </div>
                                         {catalogos.areas.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No hay areas.</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                No hay areas.
+                                            </p>
                                         ) : (
-                                            <Select value={data.area_id} onValueChange={(v) => setData('area_id', v)}>
+                                            <Select
+                                                value={data.area_id}
+                                                onValueChange={(v) =>
+                                                    setData('area_id', v)
+                                                }
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Seleccionar..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {catalogos.areas.map((area) => (
-                                                        <SelectItem key={area.id} value={String(area.id)}>
-                                                            {area.nombre}
-                                                        </SelectItem>
-                                                    ))}
+                                                    {catalogos.areas.map(
+                                                        (area) => (
+                                                            <SelectItem
+                                                                key={area.id}
+                                                                value={String(
+                                                                    area.id,
+                                                                )}
+                                                            >
+                                                                {area.nombre}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         )}
@@ -208,40 +216,89 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                             <Label>Categoria</Label>
                                             {esAdmin && (
                                                 <ModalCrearCategoriaRapida
-                                                    categoriasPadre={catalogos.categorias}
+                                                    categoriasPadre={
+                                                        catalogos.categorias
+                                                    }
                                                     onCreado={recargarCatalogos}
                                                 />
                                             )}
                                         </div>
                                         {catalogos.categorias.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No hay categorias.</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                No hay categorias.
+                                            </p>
                                         ) : (
-                                            <Select value={data.categoria_id} onValueChange={(v) => setData('categoria_id', v)}>
+                                            <Select
+                                                value={data.categoria_id}
+                                                onValueChange={(v) =>
+                                                    setData('categoria_id', v)
+                                                }
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Seleccionar..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {categoriasPadre.map((padre) => {
-                                                        const hijas = categoriasHijas.filter((h) => h.padre_id === padre.id);
-                                                        return hijas.length > 0 ? (
-                                                            <SelectGroup key={padre.id}>
-                                                                <SelectLabel>{padre.nombre}</SelectLabel>
-                                                                {hijas.map((hija) => (
-                                                                    <SelectItem key={hija.id} value={String(hija.id)}>
-                                                                        {hija.nombre}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectGroup>
-                                                        ) : (
-                                                            <SelectItem key={padre.id} value={String(padre.id)}>
-                                                                {padre.nombre}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
+                                                    {categoriasPadre.map(
+                                                        (padre) => {
+                                                            const hijas =
+                                                                categoriasHijas.filter(
+                                                                    (h) =>
+                                                                        h.padre_id ===
+                                                                        padre.id,
+                                                                );
+                                                            return hijas.length >
+                                                                0 ? (
+                                                                <SelectGroup
+                                                                    key={
+                                                                        padre.id
+                                                                    }
+                                                                >
+                                                                    <SelectLabel>
+                                                                        {
+                                                                            padre.nombre
+                                                                        }
+                                                                    </SelectLabel>
+                                                                    {hijas.map(
+                                                                        (
+                                                                            hija,
+                                                                        ) => (
+                                                                            <SelectItem
+                                                                                key={
+                                                                                    hija.id
+                                                                                }
+                                                                                value={String(
+                                                                                    hija.id,
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    hija.nombre
+                                                                                }
+                                                                            </SelectItem>
+                                                                        ),
+                                                                    )}
+                                                                </SelectGroup>
+                                                            ) : (
+                                                                <SelectItem
+                                                                    key={
+                                                                        padre.id
+                                                                    }
+                                                                    value={String(
+                                                                        padre.id,
+                                                                    )}
+                                                                >
+                                                                    {
+                                                                        padre.nombre
+                                                                    }
+                                                                </SelectItem>
+                                                            );
+                                                        },
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         )}
-                                        <InputError message={errors.categoria_id} />
+                                        <InputError
+                                            message={errors.categoria_id}
+                                        />
                                     </div>
                                 </div>
 
@@ -249,45 +306,82 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                     <div className="grid gap-2">
                                         <div className="flex items-center justify-between">
                                             <Label>Prioridad</Label>
-                                            {esAdmin && <ModalCrearPrioridadRapida onCreado={recargarCatalogos} />}
+                                            {esAdmin && (
+                                                <ModalCrearPrioridadRapida
+                                                    onCreado={recargarCatalogos}
+                                                />
+                                            )}
                                         </div>
                                         {catalogos.prioridades.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No hay prioridades.</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                No hay prioridades.
+                                            </p>
                                         ) : (
-                                            <Select value={data.prioridad_id} onValueChange={(v) => setData('prioridad_id', v)}>
+                                            <Select
+                                                value={data.prioridad_id}
+                                                onValueChange={(v) =>
+                                                    setData('prioridad_id', v)
+                                                }
+                                            >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Seleccionar..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {catalogos.prioridades.map((prioridad) => (
-                                                        <SelectItem key={prioridad.id} value={String(prioridad.id)}>
-                                                            <span className="flex items-center gap-2">
-                                                                <span
-                                                                    className="inline-block size-2 rounded-full"
-                                                                    style={{ backgroundColor: prioridad.color }}
-                                                                />
-                                                                {prioridad.nombre}
-                                                            </span>
-                                                        </SelectItem>
-                                                    ))}
+                                                    {catalogos.prioridades.map(
+                                                        (prioridad) => (
+                                                            <SelectItem
+                                                                key={
+                                                                    prioridad.id
+                                                                }
+                                                                value={String(
+                                                                    prioridad.id,
+                                                                )}
+                                                            >
+                                                                <span className="flex items-center gap-2">
+                                                                    <span
+                                                                        className="inline-block size-2 rounded-full"
+                                                                        style={{
+                                                                            backgroundColor:
+                                                                                prioridad.color,
+                                                                        }}
+                                                                    />
+                                                                    {
+                                                                        prioridad.nombre
+                                                                    }
+                                                                </span>
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
                                                 </SelectContent>
                                             </Select>
                                         )}
-                                        <InputError message={errors.prioridad_id} />
+                                        <InputError
+                                            message={errors.prioridad_id}
+                                        />
                                     </div>
 
                                     <div className="grid gap-2">
                                         <Label>Canal</Label>
-                                        <Select value={data.canal} onValueChange={(v) => setData('canal', v)}>
+                                        <Select
+                                            value={data.canal}
+                                            onValueChange={(v) =>
+                                                setData('canal', v)
+                                            }
+                                        >
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {catalogos.canales.map((canal) => (
-                                                    <SelectItem key={canal} value={canal}>
-                                                        {canal}
-                                                    </SelectItem>
-                                                ))}
+                                                {catalogos.canales.map(
+                                                    (canal) => (
+                                                        <SelectItem
+                                                            key={canal}
+                                                            value={canal}
+                                                        >
+                                                            {canal}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
                                         <InputError message={errors.canal} />
@@ -297,22 +391,43 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between">
                                         <Label>
-                                            Ubicacion <span className="text-muted-foreground">(opcional)</span>
+                                            Ubicacion{' '}
+                                            <span className="text-muted-foreground">
+                                                (opcional)
+                                            </span>
                                         </Label>
-                                        {esAdmin && <ModalCrearUbicacionRapida areas={catalogos.areas} onCreado={recargarCatalogos} />}
+                                        {esAdmin && (
+                                            <ModalCrearUbicacionRapida
+                                                areas={catalogos.areas}
+                                                onCreado={recargarCatalogos}
+                                            />
+                                        )}
                                     </div>
                                     {catalogos.ubicaciones.length > 0 && (
-                                        <Select value={data.ubicacion_id} onValueChange={(v) => setData('ubicacion_id', v)}>
+                                        <Select
+                                            value={data.ubicacion_id}
+                                            onValueChange={(v) =>
+                                                setData('ubicacion_id', v)
+                                            }
+                                        >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Sin ubicacion" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {catalogos.ubicaciones.map((ubicacion) => (
-                                                    <SelectItem key={ubicacion.id} value={String(ubicacion.id)}>
-                                                        {ubicacion.nombre}
-                                                        {ubicacion.edificio && ` - ${ubicacion.edificio}`}
-                                                    </SelectItem>
-                                                ))}
+                                                {catalogos.ubicaciones.map(
+                                                    (ubicacion) => (
+                                                        <SelectItem
+                                                            key={ubicacion.id}
+                                                            value={String(
+                                                                ubicacion.id,
+                                                            )}
+                                                        >
+                                                            {ubicacion.nombre}
+                                                            {ubicacion.edificio &&
+                                                                ` - ${ubicacion.edificio}`}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
                                     )}
@@ -322,19 +437,34 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                 {esAdmin && catalogos.usuarios.length > 0 && (
                                     <div className="grid gap-2">
                                         <Label>Solicitante</Label>
-                                        <Select value={data.solicitante_id} onValueChange={(v) => setData('solicitante_id', v)}>
+                                        <Select
+                                            value={data.solicitante_id}
+                                            onValueChange={(v) =>
+                                                setData('solicitante_id', v)
+                                            }
+                                        >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Seleccionar usuario..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {catalogos.usuarios.map((usuario) => (
-                                                    <SelectItem key={usuario.id} value={String(usuario.id)}>
-                                                        {usuario.name} ({usuario.email})
-                                                    </SelectItem>
-                                                ))}
+                                                {catalogos.usuarios.map(
+                                                    (usuario) => (
+                                                        <SelectItem
+                                                            key={usuario.id}
+                                                            value={String(
+                                                                usuario.id,
+                                                            )}
+                                                        >
+                                                            {usuario.name} (
+                                                            {usuario.email})
+                                                        </SelectItem>
+                                                    ),
+                                                )}
                                             </SelectContent>
                                         </Select>
-                                        <InputError message={errors.solicitante_id} />
+                                        <InputError
+                                            message={errors.solicitante_id}
+                                        />
                                     </div>
                                 )}
                             </>
@@ -343,14 +473,21 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                         {/* Zona de adjuntos: disponible para todos */}
                         <div className="grid gap-2">
                             <Label>
-                                Evidencia <span className="text-muted-foreground">(opcional)</span>
+                                Evidencia{' '}
+                                <span className="text-muted-foreground">
+                                    (opcional)
+                                </span>
                             </Label>
                             <ZonaAdjuntos
                                 archivos={adjuntos}
                                 onChange={setAdjuntos}
                                 progreso={progress?.percentage}
                             />
-                            <InputError message={errors['adjuntos'] || errors['adjuntos.0']} />
+                            <InputError
+                                message={
+                                    errors['adjuntos'] || errors['adjuntos.0']
+                                }
+                            />
                         </div>
 
                         <DialogFooter className="pt-4">

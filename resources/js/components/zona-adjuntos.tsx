@@ -31,7 +31,12 @@ function formatearTamano(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function ZonaAdjuntos({ archivos, onChange, maximo = 5, progreso }: Props) {
+export default function ZonaAdjuntos({
+    archivos,
+    onChange,
+    maximo = 5,
+    progreso,
+}: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const agregarArchivos = useCallback(
@@ -67,10 +72,14 @@ export default function ZonaAdjuntos({ archivos, onChange, maximo = 5, progreso 
             >
                 <Paperclip className="mb-2 size-6 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                    Arrastra archivos aquí o <span className="font-medium text-foreground">haz clic para seleccionar</span>
+                    Arrastra archivos aquí o{' '}
+                    <span className="font-medium text-foreground">
+                        haz clic para seleccionar
+                    </span>
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                    Imágenes, documentos o videos (máx. 10 MB c/u, hasta {maximo} archivos)
+                    Imágenes, documentos o videos (máx. 10 MB c/u, hasta{' '}
+                    {maximo} archivos)
                 </p>
                 <input
                     ref={inputRef}
@@ -88,13 +97,24 @@ export default function ZonaAdjuntos({ archivos, onChange, maximo = 5, progreso 
             {archivos.length > 0 && (
                 <ul className="space-y-1">
                     {archivos.map((archivo, i) => (
-                        <li key={`${archivo.name}-${i}`} className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm">
+                        <li
+                            key={`${archivo.name}-${i}`}
+                            className="flex items-center justify-between rounded-md border bg-muted/50 px-3 py-2 text-sm"
+                        >
                             <div className="flex items-center gap-2 truncate">
                                 <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
                                 <span className="truncate">{archivo.name}</span>
-                                <span className="shrink-0 text-xs text-muted-foreground">({formatearTamano(archivo.size)})</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                    ({formatearTamano(archivo.size)})
+                                </span>
                             </div>
-                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6 shrink-0" onClick={() => eliminar(i)}>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 shrink-0"
+                                onClick={() => eliminar(i)}
+                            >
                                 <X className="h-3.5 w-3.5" />
                             </Button>
                         </li>
@@ -104,7 +124,10 @@ export default function ZonaAdjuntos({ archivos, onChange, maximo = 5, progreso 
 
             {progreso != null && progreso > 0 && (
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progreso}%` }} />
+                    <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: `${progreso}%` }}
+                    />
                 </div>
             )}
         </div>

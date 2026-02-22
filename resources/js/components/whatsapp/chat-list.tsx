@@ -1,12 +1,26 @@
-import { Camera, FileText, Loader2, MessageSquarePlus, Mic, Search, ArrowLeft, Send, RefreshCw, Video } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
+import {
+    Camera,
+    FileText,
+    Loader2,
+    MessageSquarePlus,
+    Mic,
+    Search,
+    ArrowLeft,
+    Send,
+    RefreshCw,
+    Video,
+} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {
+    nuevoChat,
+    contactos as obtenerContactos,
+    sincronizar,
+} from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
     DialogContent,
@@ -15,10 +29,14 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { nuevoChat, contactos as obtenerContactos, sincronizar } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import type { Chat, EstadoTicketChat } from '@/pages/admin/whatsapp/index';
 
-function formatearHoraChat(ultimoMensajeAt: string | null, horaUltimo: string): string {
+function formatearHoraChat(
+    ultimoMensajeAt: string | null,
+    horaUltimo: string,
+): string {
     if (!ultimoMensajeAt) return horaUltimo;
 
     const fecha = new Date(ultimoMensajeAt);
@@ -31,7 +49,11 @@ function formatearHoraChat(ultimoMensajeAt: string | null, horaUltimo: string): 
 
     if (esHoy) return horaUltimo;
     if (esAyer) return 'Ayer';
-    return fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    return fecha.toLocaleDateString('es-MX', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+    });
 }
 
 function PreviewUltimoMensaje({ contenido }: { contenido: string }) {
@@ -113,7 +135,12 @@ const filtros: { valor: FiltroEstado; label: string }[] = [
     { valor: 'cerrado', label: 'Cerrados' },
 ];
 
-export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexion }: Props) {
+export default function ChatList({
+    chats,
+    chatActivo,
+    onSelectChat,
+    estadoConexion,
+}: Props) {
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
     const [dialogAbierto, setDialogAbierto] = useState(false);
@@ -125,8 +152,22 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
     const [contactosWA, setContactosWA] = useState<ContactoWhatsApp[]>([]);
     const [cargandoContactos, setCargandoContactos] = useState(false);
     const [busquedaContacto, setBusquedaContacto] = useState('');
-    const [contactoSeleccionado, setContactoSeleccionado] = useState<ContactoWhatsApp | null>(null);
+    const [contactoSeleccionado, setContactoSeleccionado] =
+        useState<ContactoWhatsApp | null>(null);
     const [paso, setPaso] = useState<'seleccionar' | 'mensaje'>('seleccionar');
+
+    const cargarContactos = () => {
+        setCargandoContactos(true);
+        const route = obtenerContactos();
+
+        axios
+            .get<ContactoWhatsApp[]>(route.url)
+            .then((res) => {
+                setContactosWA(res.data);
+            })
+            .catch((err) => console.error('Error al cargar contactos:', err))
+            .finally(() => setCargandoContactos(false));
+    };
 
     // Cargar contactos cuando se abre el dialog
     useEffect(() => {
@@ -134,18 +175,6 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
             cargarContactos();
         }
     }, [dialogAbierto]);
-
-    function cargarContactos() {
-        setCargandoContactos(true);
-        const route = obtenerContactos();
-
-        axios.get<ContactoWhatsApp[]>(route.url)
-            .then((res) => {
-                setContactosWA(res.data);
-            })
-            .catch((err) => console.error('Error al cargar contactos:', err))
-            .finally(() => setCargandoContactos(false));
-    }
 
     function handleSelectContacto(contacto: ContactoWhatsApp) {
         setContactoSeleccionado(contacto);
@@ -172,11 +201,12 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
         setEnviando(true);
         const route = nuevoChat();
 
-        axios.post(route.url, {
-            telefono: contactoSeleccionado.telefono,
-            nombre: contactoSeleccionado.nombre,
-            mensaje: nuevoMensaje.trim(),
-        })
+        axios
+            .post(route.url, {
+                telefono: contactoSeleccionado.telefono,
+                nombre: contactoSeleccionado.nombre,
+                mensaje: nuevoMensaje.trim(),
+            })
             .then((res) => {
                 if (res.data.status === 'ok') {
                     handleCerrarDialog();
@@ -196,7 +226,8 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
         setSincronizando(true);
         const route = sincronizar();
 
-        axios.post(route.url)
+        axios
+            .post(route.url)
             .then(() => {
                 router.reload({ only: ['chats', 'mensajes'] });
             })
@@ -205,9 +236,10 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
     }
 
     // Filtrar contactos por búsqueda
-    const contactosFiltrados = contactosWA.filter((c) =>
-        c.nombre.toLowerCase().includes(busquedaContacto.toLowerCase()) ||
-        c.telefono.includes(busquedaContacto)
+    const contactosFiltrados = contactosWA.filter(
+        (c) =>
+            c.nombre.toLowerCase().includes(busquedaContacto.toLowerCase()) ||
+            c.telefono.includes(busquedaContacto),
     );
 
     const chatsFiltrados = chats.filter((chat) => {
@@ -218,13 +250,14 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
             chat.ultimo_mensaje.toLowerCase().includes(busqueda.toLowerCase());
 
         // Filtro por estado de ticket
-        const coincideEstado = filtroEstado === 'todos' || chat.estado_ticket === filtroEstado;
+        const coincideEstado =
+            filtroEstado === 'todos' || chat.estado_ticket === filtroEstado;
 
         return coincideBusqueda && coincideEstado;
     });
 
     return (
-        <div className="flex w-80 min-w-80 max-w-80 flex-col min-h-0 border-r bg-background">
+        <div className="flex min-h-0 w-80 max-w-80 min-w-80 flex-col border-r bg-background">
             {/* Header con estado de conexión */}
             <div className="flex items-center justify-between border-b px-4 py-3">
                 <span className="font-semibold">Chats</span>
@@ -235,32 +268,61 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                         className="h-8 w-8"
                         title="Sincronizar chats"
                         onClick={handleSincronizar}
-                        disabled={sincronizando || estadoConexion !== 'conectado'}
+                        disabled={
+                            sincronizando || estadoConexion !== 'conectado'
+                        }
                     >
-                        <RefreshCw className={`h-4 w-4 ${sincronizando ? 'animate-spin' : ''}`} />
+                        <RefreshCw
+                            className={`h-4 w-4 ${sincronizando ? 'animate-spin' : ''}`}
+                        />
                     </Button>
-                    <Dialog open={dialogAbierto} onOpenChange={(open) => open ? setDialogAbierto(true) : handleCerrarDialog()}>
+                    <Dialog
+                        open={dialogAbierto}
+                        onOpenChange={(open) =>
+                            open ? setDialogAbierto(true) : handleCerrarDialog()
+                        }
+                    >
                         <DialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Nuevo chat">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Nuevo chat"
+                            >
                                 <MessageSquarePlus className="h-4 w-4" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+                        <DialogContent className="flex max-h-[80vh] max-w-md flex-col">
                             <DialogHeader className="shrink-0">
                                 {paso === 'seleccionar' ? (
                                     <>
                                         <DialogTitle>Nuevo chat</DialogTitle>
-                                        <DialogDescription>Selecciona un contacto para iniciar una conversación.</DialogDescription>
+                                        <DialogDescription>
+                                            Selecciona un contacto para iniciar
+                                            una conversación.
+                                        </DialogDescription>
                                     </>
                                 ) : (
                                     <div className="flex items-center gap-3">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleVolverAContactos}>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={handleVolverAContactos}
+                                        >
                                             <ArrowLeft className="h-4 w-4" />
                                         </Button>
-                                        <div className="flex items-center gap-3 flex-1">
+                                        <div className="flex flex-1 items-center gap-3">
                                             <Avatar className="h-10 w-10">
                                                 {contactoSeleccionado?.foto && (
-                                                    <AvatarImage src={contactoSeleccionado.foto} alt={contactoSeleccionado.nombre} />
+                                                    <AvatarImage
+                                                        src={
+                                                            contactoSeleccionado.foto
+                                                        }
+                                                        alt={
+                                                            contactoSeleccionado.nombre
+                                                        }
+                                                    />
                                                 )}
                                                 <AvatarFallback className="bg-primary/10 text-sm font-medium">
                                                     {contactoSeleccionado?.nombre
@@ -272,8 +334,17 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <DialogTitle className="text-base">{contactoSeleccionado?.nombre}</DialogTitle>
-                                                <p className="text-xs text-muted-foreground">+{contactoSeleccionado?.telefono}</p>
+                                                <DialogTitle className="text-base">
+                                                    {
+                                                        contactoSeleccionado?.nombre
+                                                    }
+                                                </DialogTitle>
+                                                <p className="text-xs text-muted-foreground">
+                                                    +
+                                                    {
+                                                        contactoSeleccionado?.telefono
+                                                    }
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -281,20 +352,24 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                             </DialogHeader>
 
                             {paso === 'seleccionar' ? (
-                                <div className="flex flex-col min-h-0 flex-1">
+                                <div className="flex min-h-0 flex-1 flex-col">
                                     {/* Búsqueda de contactos */}
-                                    <div className="relative shrink-0 mb-3">
-                                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <div className="relative mb-3 shrink-0">
+                                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         <Input
                                             placeholder="Buscar contacto..."
                                             value={busquedaContacto}
-                                            onChange={(e) => setBusquedaContacto(e.target.value)}
+                                            onChange={(e) =>
+                                                setBusquedaContacto(
+                                                    e.target.value,
+                                                )
+                                            }
                                             className="pl-9"
                                         />
                                     </div>
 
                                     {/* Lista de contactos */}
-                                    <div className="flex-1 overflow-y-auto -mx-6 px-6 min-h-[300px] max-h-[400px]">
+                                    <div className="-mx-6 max-h-[400px] min-h-[300px] flex-1 overflow-y-auto px-6">
                                         {cargandoContactos ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -302,36 +377,74 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                                         ) : contactosFiltrados.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                                                 <p className="text-sm">
-                                                    {busquedaContacto ? 'No se encontraron contactos' : 'No hay contactos disponibles'}
+                                                    {busquedaContacto
+                                                        ? 'No se encontraron contactos'
+                                                        : 'No hay contactos disponibles'}
                                                 </p>
                                             </div>
                                         ) : (
                                             <div className="space-y-1">
-                                                {contactosFiltrados.map((contacto) => (
-                                                    <button
-                                                        key={contacto.telefono}
-                                                        onClick={() => handleSelectContacto(contacto)}
-                                                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left rounded-lg transition-colors hover:bg-accent"
-                                                    >
-                                                        <Avatar className="h-10 w-10 shrink-0">
-                                                            {contacto.foto && (
-                                                                <AvatarImage src={contacto.foto} alt={contacto.nombre} />
-                                                            )}
-                                                            <AvatarFallback className="bg-primary/10 text-sm font-medium">
-                                                                {contacto.nombre
-                                                                    .split(' ')
-                                                                    .map((n) => n[0])
-                                                                    .join('')
-                                                                    .slice(0, 2)
-                                                                    .toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="font-medium text-sm truncate">{contacto.nombre}</p>
-                                                            <p className="text-xs text-muted-foreground">+{contacto.telefono}</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
+                                                {contactosFiltrados.map(
+                                                    (contacto) => (
+                                                        <button
+                                                            key={
+                                                                contacto.telefono
+                                                            }
+                                                            onClick={() =>
+                                                                handleSelectContacto(
+                                                                    contacto,
+                                                                )
+                                                            }
+                                                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                                                        >
+                                                            <Avatar className="h-10 w-10 shrink-0">
+                                                                {contacto.foto && (
+                                                                    <AvatarImage
+                                                                        src={
+                                                                            contacto.foto
+                                                                        }
+                                                                        alt={
+                                                                            contacto.nombre
+                                                                        }
+                                                                    />
+                                                                )}
+                                                                <AvatarFallback className="bg-primary/10 text-sm font-medium">
+                                                                    {contacto.nombre
+                                                                        .split(
+                                                                            ' ',
+                                                                        )
+                                                                        .map(
+                                                                            (
+                                                                                n,
+                                                                            ) =>
+                                                                                n[0],
+                                                                        )
+                                                                        .join(
+                                                                            '',
+                                                                        )
+                                                                        .slice(
+                                                                            0,
+                                                                            2,
+                                                                        )
+                                                                        .toUpperCase()}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="truncate text-sm font-medium">
+                                                                    {
+                                                                        contacto.nombre
+                                                                    }
+                                                                </p>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    +
+                                                                    {
+                                                                        contacto.telefono
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    ),
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -341,20 +454,24 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                                     <Textarea
                                         placeholder="Escribe tu mensaje..."
                                         value={nuevoMensaje}
-                                        onChange={(e) => setNuevoMensaje(e.target.value)}
+                                        onChange={(e) =>
+                                            setNuevoMensaje(e.target.value)
+                                        }
                                         rows={4}
                                         className="resize-none"
                                         autoFocus
                                     />
                                     <Button
                                         onClick={handleEnviarMensaje}
-                                        disabled={!nuevoMensaje.trim() || enviando}
+                                        disabled={
+                                            !nuevoMensaje.trim() || enviando
+                                        }
                                         className="w-full"
                                     >
                                         {enviando ? (
-                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                         ) : (
-                                            <Send className="h-4 w-4 mr-2" />
+                                            <Send className="mr-2 h-4 w-4" />
                                         )}
                                         Enviar mensaje
                                     </Button>
@@ -368,7 +485,7 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                                 estadoConexion === 'conectado'
                                     ? 'bg-green-500'
                                     : estadoConexion === 'conectando'
-                                      ? 'bg-yellow-500 animate-pulse'
+                                      ? 'animate-pulse bg-yellow-500'
                                       : 'bg-red-500'
                             }`}
                         />
@@ -386,7 +503,7 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
             {/* Busqueda */}
             <div className="p-3 pb-0">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Buscar chat..."
                         value={busqueda}
@@ -397,15 +514,15 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
             </div>
 
             {/* Filtros por estado */}
-            <div className="flex gap-1 p-3 overflow-x-auto scrollbar-thin">
+            <div className="scrollbar-thin flex gap-1 overflow-x-auto p-3">
                 {filtros.map((filtro) => (
                     <button
                         key={filtro.valor}
                         onClick={() => setFiltroEstado(filtro.valor)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
                             filtroEstado === filtro.valor
                                 ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                     >
                         {filtro.label}
@@ -414,7 +531,7 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
             </div>
 
             {/* Lista de chats */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin">
+            <div className="scrollbar-thin flex-1 overflow-y-auto">
                 {chatsFiltrados.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                         <p className="text-sm">No se encontraron chats</p>
@@ -424,13 +541,18 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                         <button
                             key={chat.id}
                             onClick={() => onSelectChat(chat.id)}
-                            className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent border-b border-border/50 ${
+                            className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors hover:bg-accent ${
                                 chatActivo === chat.id ? 'bg-accent' : ''
                             }`}
                         >
                             <div className="relative shrink-0">
                                 <Avatar className="h-12 w-12">
-                                    {chat.avatar && <AvatarImage src={chat.avatar} alt={chat.nombre} />}
+                                    {chat.avatar && (
+                                        <AvatarImage
+                                            src={chat.avatar}
+                                            alt={chat.nombre}
+                                        />
+                                    )}
                                     <AvatarFallback className="bg-primary/10 text-sm font-medium">
                                         {chat.nombre
                                             .split(' ')
@@ -441,19 +563,30 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                                     </AvatarFallback>
                                 </Avatar>
                                 <div
-                                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${
-                                        chat.en_linea ? 'bg-green-500' : 'bg-muted-foreground/40'
+                                    className={`absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-background ${
+                                        chat.en_linea
+                                            ? 'bg-green-500'
+                                            : 'bg-muted-foreground/40'
                                     }`}
                                 />
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="truncate font-medium text-sm">{chat.nombre}</span>
-                                    <span className="shrink-0 text-[11px] text-muted-foreground">{formatearHoraChat(chat.ultimo_mensaje_at, chat.hora_ultimo)}</span>
+                                    <span className="truncate text-sm font-medium">
+                                        {chat.nombre}
+                                    </span>
+                                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                                        {formatearHoraChat(
+                                            chat.ultimo_mensaje_at,
+                                            chat.hora_ultimo,
+                                        )}
+                                    </span>
                                 </div>
-                                <div className="flex items-center justify-between gap-2 mt-1">
-                                    <p className="truncate text-xs text-muted-foreground flex items-center min-w-0">
-                                        <PreviewUltimoMensaje contenido={chat.ultimo_mensaje} />
+                                <div className="mt-1 flex items-center justify-between gap-2">
+                                    <p className="flex min-w-0 items-center truncate text-xs text-muted-foreground">
+                                        <PreviewUltimoMensaje
+                                            contenido={chat.ultimo_mensaje}
+                                        />
                                     </p>
                                     {chat.no_leidos > 0 && (
                                         <Badge className="h-5 min-w-5 shrink-0 justify-center rounded-full px-1.5 text-[10px]">
@@ -466,7 +599,6 @@ export default function ChatList({ chats, chatActivo, onSelectChat, estadoConexi
                     ))
                 )}
             </div>
-
         </div>
     );
 }

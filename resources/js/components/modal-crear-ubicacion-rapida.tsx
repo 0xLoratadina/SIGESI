@@ -4,10 +4,23 @@ import { type FormEvent, useState } from 'react';
 import { store } from '@/actions/App/Http/Controllers/Admin/UbicacionController';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { CatalogosDashboard } from '@/types';
 
 type Props = {
@@ -41,11 +54,20 @@ export default function ModalCrearUbicacionRapida({ areas, onCreado }: Props) {
     return (
         <Dialog open={abierto} onOpenChange={setAbierto}>
             <DialogTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear ubicacion">
+                <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    title="Crear ubicacion"
+                >
                     <Plus className="h-3.5 w-3.5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[400px]" onClick={(e) => e.stopPropagation()}>
+            <DialogContent
+                className="sm:max-w-[400px]"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <DialogHeader>
                     <DialogTitle>Nueva Ubicacion</DialogTitle>
                 </DialogHeader>
@@ -80,19 +102,30 @@ export default function ModalCrearUbicacionRapida({ areas, onCreado }: Props) {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {areas.map((area) => (
-                                            <SelectItem key={area.id} value={String(area.id)}>
+                                            <SelectItem
+                                                key={area.id}
+                                                value={String(area.id)}
+                                            >
                                                 {area.nombre}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             ) : (
-                                <p className="text-muted-foreground text-sm">Sin areas</p>
+                                <p className="text-sm text-muted-foreground">
+                                    Sin areas
+                                </p>
                             )}
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setAbierto(false)}>Cancelar</Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setAbierto(false)}
+                        >
+                            Cancelar
+                        </Button>
                         <Button type="submit" disabled={procesando}>
                             {procesando ? 'Creando...' : 'Crear'}
                         </Button>
