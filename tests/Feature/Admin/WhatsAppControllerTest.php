@@ -35,10 +35,22 @@ it('pagina incluye todos los datos necesarios', function () {
         ->assertInertia(fn ($pagina) => $pagina
             ->component('admin/whatsapp/index')
             ->has('chats')
-            ->has('mensajes')
             ->has('tickets')
             ->has('estadoConexion')
         );
+});
+
+it('mensajes se cargan como deferred prop', function () {
+    $admin = User::factory()->administrador()->create();
+
+    $response = $this->actingAs($admin)
+        ->get(route('admin.whatsapp'));
+
+    $response->assertSuccessful();
+
+    // mensajes es un deferred prop, no está en la respuesta inicial
+    $page = $response->viewData('page');
+    expect($page['deferredProps'])->toHaveKey('default');
 });
 
 it('usuario no autenticado es redirigido al login', function () {

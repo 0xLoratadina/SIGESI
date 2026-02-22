@@ -23,14 +23,9 @@ class WhatsAppController extends Controller
 
     public function index(): Response
     {
-        // Re-configurar webhook automáticamente al cargar la página
-        if ($this->evolutionApi->estaConectado()) {
-            $this->configurarWebhookAutomatico();
-        }
-
         return Inertia::render('admin/whatsapp/index', [
             'chats' => $this->whatsAppService->getChats(),
-            'mensajes' => $this->whatsAppService->getMensajesPorChat(),
+            'mensajes' => Inertia::defer(fn () => $this->whatsAppService->getMensajesPorChat()),
             'tickets' => $this->whatsAppService->getTicketsPorChat(),
             'estadoConexion' => $this->obtenerEstadoConexion(),
             'ultimaActualizacion' => now()->toISOString(),
@@ -47,22 +42,11 @@ class WhatsAppController extends Controller
         $chatActivoId = $request->input('chat_activo');
         $timestamp = $desde ? \Carbon\Carbon::parse($desde) : now()->subMinutes(5);
 
-        // 1. Buscar mensajes nuevos en BD
+        // Buscar mensajes nuevos en BD (los webhooks se encargan de guardar mensajes entrantes)
         $mensajesNuevos = WhatsAppMensaje::with('contacto')
             ->where('created_at', '>', $timestamp)
             ->orderBy('created_at')
             ->get();
-
-        // 2. Si no hay mensajes nuevos en BD, intentar sync rápido desde API (throttled)
-        if ($mensajesNuevos->isEmpty() && $this->evolutionApi->estaConectado()) {
-            $this->sincronizarRecientes($chatActivoId);
-
-            // Re-consultar BD después del sync
-            $mensajesNuevos = WhatsAppMensaje::with('contacto')
-                ->where('created_at', '>', $timestamp)
-                ->orderBy('created_at')
-                ->get();
-        }
 
         // Agrupar por contacto
         $mensajesPorChat = [];
@@ -88,13 +72,19 @@ class WhatsAppController extends Controller
             ];
         }
 
-        // Obtener chats actualizados
-        $contactosActualizados = WhatsAppContacto::whereIn('id', $mensajesNuevos->pluck('contacto_id')->unique())
-            ->orWhere('updated_at', '>', $timestamp)
+        // Obtener chats actualizados con eager loading (evitar N+1)
+        $contactoIds = $mensajesNuevos->pluck('contacto_id')->unique();
+        $contactosActualizados = WhatsAppContacto::query()
+            ->where(function ($q) use ($contactoIds, $timestamp) {
+                $q->whereIn('id', $contactoIds)
+                    ->orWhere('updated_at', '>', $timestamp);
+            })
+            ->with(['mensajes' => fn ($q) => $q->latest('enviado_at')->limit(1)])
+            ->withCount(['mensajes as no_leidos' => fn ($q) => $q->where('tipo', 'recibido')->where('leido', false)])
             ->get();
 
         $chatsActualizados = $contactosActualizados->map(function (WhatsAppContacto $contacto) {
-            $ultimoMensaje = $contacto->ultimoMensaje();
+            $ultimoMensaje = $contacto->mensajes->first();
 
             return [
                 'id' => (string) $contacto->id,
@@ -104,7 +94,7 @@ class WhatsAppController extends Controller
                 'ultimo_mensaje' => $ultimoMensaje?->contenido ?? '',
                 'hora_ultimo' => $ultimoMensaje?->enviado_at->format('H:i') ?? '',
                 'ultimo_mensaje_at' => $ultimoMensaje?->enviado_at?->toISOString(),
-                'no_leidos' => $contacto->mensajesNoLeidos(),
+                'no_leidos' => $contacto->no_leidos,
                 'en_linea' => $contacto->en_linea,
                 'estado_ticket' => $contacto->estado_ticket->value,
             ];
@@ -128,7 +118,7 @@ class WhatsAppController extends Controller
         if (Cache::has($cacheKey)) {
             return;
         }
-        Cache::put($cacheKey, true, 10);
+        Cache::put($cacheKey, true, 30);
 
         try {
             // Si hay chat activo, priorizar ese contacto
@@ -169,20 +159,22 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Obtener estado de conexion real.
+     * Obtener estado de conexión cacheado (30 segundos).
      */
     private function obtenerEstadoConexion(): string
     {
-        if ($this->evolutionApi->estaConectado()) {
-            return 'conectado';
-        }
+        return Cache::remember('whatsapp_estado_conexion', 30, function () {
+            if ($this->evolutionApi->estaConectado()) {
+                return 'conectado';
+            }
 
-        $qrcode = cache()->get('whatsapp_qrcode');
-        if ($qrcode) {
-            return 'conectando';
-        }
+            $qrcode = cache()->get('whatsapp_qrcode');
+            if ($qrcode) {
+                return 'conectando';
+            }
 
-        return 'desconectado';
+            return 'desconectado';
+        });
     }
 
     /**
@@ -204,6 +196,8 @@ class WhatsAppController extends Controller
 
         // Configurar webhook automáticamente
         $this->configurarWebhookAutomatico();
+
+        Cache::forget('whatsapp_estado_conexion');
 
         return response()->json([
             'status' => 'ok',
@@ -276,6 +270,7 @@ class WhatsAppController extends Controller
 
         cache()->forget('whatsapp_qrcode');
         cache()->forget('whatsapp_connection_state');
+        Cache::forget('whatsapp_estado_conexion');
 
         return response()->json(['status' => $exito ? 'ok' : 'error']);
     }

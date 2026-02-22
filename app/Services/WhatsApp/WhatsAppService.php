@@ -27,6 +27,7 @@ class WhatsAppService
     {
         return WhatsAppContacto::query()
             ->with(['mensajes' => fn ($q) => $q->latest('enviado_at')->limit(1)])
+            ->withCount(['mensajes as no_leidos' => fn ($q) => $q->where('tipo', 'recibido')->where('leido', false)])
             ->get()
             ->map(fn (WhatsAppContacto $contacto) => $this->formatearContacto($contacto))
             ->sortByDesc('ultimo_mensaje_at')
@@ -41,11 +42,15 @@ class WhatsAppService
      */
     public function getMensajesPorChat(): array
     {
-        $contactos = WhatsAppContacto::with(['mensajes' => fn ($q) => $q->orderBy('enviado_at')])->get();
+        $contactos = WhatsAppContacto::with([
+            'mensajes' => fn ($q) => $q->orderByDesc('enviado_at')->limit(50),
+        ])->get();
 
         $resultado = [];
         foreach ($contactos as $contacto) {
             $resultado[(string) $contacto->id] = $contacto->mensajes
+                ->reverse()
+                ->values()
                 ->map(fn (WhatsAppMensaje $mensaje) => $this->formatearMensaje($mensaje))
                 ->all();
         }
@@ -81,7 +86,7 @@ class WhatsAppService
             'ultimo_mensaje' => $ultimoMensaje?->contenido ?? '',
             'hora_ultimo' => $ultimoMensaje?->enviado_at->format('H:i') ?? '',
             'ultimo_mensaje_at' => $ultimoMensaje?->enviado_at?->toISOString(),
-            'no_leidos' => $contacto->mensajesNoLeidos(),
+            'no_leidos' => $contacto->no_leidos ?? $contacto->mensajesNoLeidos(),
             'en_linea' => $contacto->en_linea,
             'estado_ticket' => $contacto->estado_ticket->value,
         ];
