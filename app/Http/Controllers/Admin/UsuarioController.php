@@ -21,6 +21,7 @@ class UsuarioController extends Controller
     {
         return Inertia::render('admin/usuarios', [
             'usuarios' => User::query()
+                ->select('id', 'name', 'email', 'rol', 'area_id', 'activo', 'onboarding_completado', 'created_at')
                 ->with('area:id,nombre')
                 ->orderByDesc('created_at')
                 ->get(),

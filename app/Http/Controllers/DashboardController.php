@@ -27,18 +27,23 @@ class DashboardController extends Controller
             Rol::Solicitante => Ticket::query()->where('solicitante_id', $usuario->id),
         };
 
+        $conteosPorEstado = (clone $consulta)
+            ->selectRaw('estado, count(*) as total')
+            ->groupBy('estado')
+            ->pluck('total', 'estado');
+
         $estadisticas = [
-            'total' => (clone $consulta)->count(),
-            'abiertos' => (clone $consulta)->where('estado', EstadoTicket::Abierto)->count(),
-            'en_progreso' => (clone $consulta)->whereIn('estado', [
-                EstadoTicket::Asignado,
-                EstadoTicket::EnProgreso,
-                EstadoTicket::EnEspera,
-            ])->count(),
-            'resueltos' => (clone $consulta)->whereIn('estado', [
-                EstadoTicket::Resuelto,
-                EstadoTicket::Cerrado,
-            ])->count(),
+            'total' => $conteosPorEstado->sum(),
+            'abiertos' => $conteosPorEstado->get(EstadoTicket::Abierto->value, 0),
+            'en_progreso' => $conteosPorEstado->only([
+                EstadoTicket::Asignado->value,
+                EstadoTicket::EnProgreso->value,
+                EstadoTicket::EnEspera->value,
+            ])->sum(),
+            'resueltos' => $conteosPorEstado->only([
+                EstadoTicket::Resuelto->value,
+                EstadoTicket::Cerrado->value,
+            ])->sum(),
         ];
 
         $filtroEstado = $request->query('estado');
