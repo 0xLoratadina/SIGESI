@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { update } from '@/actions/App/Http/Controllers/Admin/AuxiliarController';
 import InputError from '@/components/input-error';
@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { usuarios } from '@/routes/admin';
 import type { AuxiliarAdmin, Dia, HorarioAuxiliar } from '@/types/models';
 
 const PLACEHOLDER_DIA = '__seleccionar__';
@@ -36,13 +35,14 @@ type HorarioFormulario = {
 
 type Props = {
     auxiliares: AuxiliarAdmin[];
+    busqueda: string;
 };
 
 const ALTURA_ENCABEZADO_EST = 41;
 const ALTURA_FILA_EST = 49;
 const POR_PAGINA_MOVIL = 10;
 
-export default function SeccionAuxiliares({ auxiliares }: Props) {
+export default function SeccionAuxiliares({ auxiliares, busqueda }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<AuxiliarAdmin | null>(null);
     const [procesando, setProcesando] = useState(false);
@@ -51,7 +51,17 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
     const contenedorRef = useRef<HTMLDivElement>(null);
     const [elementosPorPagina, setElementosPorPagina] = useState(POR_PAGINA_MOVIL);
 
-    const hayDatos = auxiliares.length > 0;
+    const auxiliaresFiltrados = useMemo(() => {
+        if (!busqueda.trim()) return auxiliares;
+        const termino = busqueda.toLowerCase().trim();
+        return auxiliares.filter((a) => a.name.toLowerCase().includes(termino));
+    }, [auxiliares, busqueda]);
+
+    useEffect(() => {
+        setPagina(1);
+    }, [busqueda]);
+
+    const hayDatos = auxiliaresFiltrados.length > 0;
 
     useEffect(() => {
         if (!hayDatos) return;
@@ -82,15 +92,15 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
         };
     }, [hayDatos]);
 
-    const totalPaginas = Math.max(1, Math.ceil(auxiliares.length / elementosPorPagina));
+    const totalPaginas = Math.max(1, Math.ceil(auxiliaresFiltrados.length / elementosPorPagina));
 
     useEffect(() => {
         if (pagina > totalPaginas) setPagina(totalPaginas);
     }, [totalPaginas, pagina]);
 
     const auxiliaresPaginados = useMemo(
-        () => auxiliares.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
-        [auxiliares, pagina, elementosPorPagina],
+        () => auxiliaresFiltrados.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
+        [auxiliaresFiltrados, pagina, elementosPorPagina],
     );
 
     const [whatsappTelefono, setWhatsappTelefono] = useState('');
@@ -209,20 +219,11 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
     }
 
     return (
-        <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
-            <div className="shrink-0 flex items-center justify-between">
-                <p className="text-muted-foreground text-sm">{auxiliares.length} auxiliar(es)</p>
-                <Button size="sm" variant="outline" asChild>
-                    <a href={usuarios().url + '?rol=Auxiliar'}>
-                        <ExternalLink className="mr-1 h-4 w-4" /> Agregar desde Usuarios
-                    </a>
-                </Button>
-            </div>
-
-            {auxiliares.length === 0 ? (
+        <div className="flex flex-col md:min-h-0 md:flex-1">
+            {auxiliaresFiltrados.length === 0 ? (
                 <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-                    <p>No hay auxiliares registrados.</p>
-                    <p className="text-sm">Crea un usuario con rol Auxiliar desde la seccion de Usuarios.</p>
+                    <p>{busqueda.trim() ? 'No se encontraron auxiliares que coincidan con la busqueda.' : 'No hay auxiliares registrados.'}</p>
+                    {!busqueda.trim() && <p className="text-sm">Crea un usuario con rol Auxiliar desde la seccion de Usuarios.</p>}
                 </div>
             ) : (
                 <>
@@ -230,7 +231,7 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
                     <Table className="min-w-[650px] table-fixed">
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[22%]">Nombre</TableHead>
+                                <TableHead className="w-[22%] pl-[25px]">Nombre</TableHead>
                                 <TableHead className="w-[15%]">Teléfono</TableHead>
                                 <TableHead className="w-[20%]">Especialidades</TableHead>
                                 <TableHead className="w-[22%]">Horario</TableHead>
@@ -241,7 +242,7 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
                         <TableBody>
                             {auxiliaresPaginados.map((auxiliar) => (
                                 <TableRow key={auxiliar.id}>
-                                    <TableCell>
+                                    <TableCell className="pl-[25px]">
                                         <div>
                                             <span className="font-medium">{auxiliar.name}</span>
                                             {auxiliar.area && (
@@ -282,7 +283,7 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
 
                 <div className="shrink-0 flex items-center justify-between pt-2">
                     <p className="text-muted-foreground text-xs">
-                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, auxiliares.length)} de {auxiliares.length}
+                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, auxiliaresFiltrados.length)} de {auxiliaresFiltrados.length}
                     </p>
                     <div className="flex items-center gap-1">
                         <Button size="sm" variant="outline" disabled={pagina === 1} onClick={() => setPagina(pagina - 1)}>

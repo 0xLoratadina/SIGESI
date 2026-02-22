@@ -229,7 +229,7 @@ export default function UsuariosAdmin({ usuarios, areas }: Props) {
                                     <Table className="min-w-[700px] table-fixed">
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="w-[18%]">Nombre</TableHead>
+                                                <TableHead className="w-[18%] pl-[25px]">Nombre</TableHead>
                                                 <TableHead className="w-[22%]">Email</TableHead>
                                                 <TableHead className="w-[12%]">Rol</TableHead>
                                                 <TableHead className="w-[18%]">Area</TableHead>
@@ -241,7 +241,7 @@ export default function UsuariosAdmin({ usuarios, areas }: Props) {
                                         <TableBody>
                                             {usuariosPaginados.map((usuario) => (
                                                 <TableRow key={usuario.id}>
-                                                    <TableCell className="truncate font-medium">{usuario.name}</TableCell>
+                                                    <TableCell className="truncate pl-[25px] font-medium">{usuario.name}</TableCell>
                                                     <TableCell className="truncate text-sm text-muted-foreground">{usuario.email}</TableCell>
                                                     <TableCell>
                                                         <Badge variant={colorRol[usuario.rol]}>{usuario.rol}</Badge>

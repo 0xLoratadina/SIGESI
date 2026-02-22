@@ -142,7 +142,7 @@ export default function SeccionPrioridades({ prioridades }: Props) {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nivel</TableHead>
-                                <TableHead>Nombre</TableHead>
+                                <TableHead className="pl-[25px]">Nombre</TableHead>
                                 <TableHead>Color</TableHead>
                                 <TableHead className="hidden sm:table-cell">Hrs. Respuesta</TableHead>
                                 <TableHead className="hidden sm:table-cell">Hrs. Resolución</TableHead>
@@ -154,7 +154,7 @@ export default function SeccionPrioridades({ prioridades }: Props) {
                             {prioridades.map((pri) => (
                                 <TableRow key={pri.id}>
                                     <TableCell>{pri.nivel}</TableCell>
-                                    <TableCell className="font-medium">{pri.nombre}</TableCell>
+                                    <TableCell className="pl-[25px] font-medium">{pri.nombre}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <span className="inline-block h-4 w-4 rounded-full border" style={{ backgroundColor: pri.color }} />

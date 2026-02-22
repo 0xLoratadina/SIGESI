@@ -140,7 +140,7 @@ export default function SeccionUbicaciones({ ubicaciones, areas }: Props) {
                     <Table className="min-w-[500px]">
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre</TableHead>
+                                <TableHead className="pl-[25px]">Nombre</TableHead>
                                 <TableHead>Edificio</TableHead>
                                 <TableHead>Piso</TableHead>
                                 <TableHead>Área</TableHead>
@@ -151,7 +151,7 @@ export default function SeccionUbicaciones({ ubicaciones, areas }: Props) {
                         <TableBody>
                             {ubicaciones.map((ubi) => (
                                 <TableRow key={ubi.id}>
-                                    <TableCell className="font-medium">{ubi.nombre}</TableCell>
+                                    <TableCell className="pl-[25px] font-medium">{ubi.nombre}</TableCell>
                                     <TableCell>{ubi.edificio}</TableCell>
                                     <TableCell>{ubi.piso ?? '—'}</TableCell>
                                     <TableCell>{ubi.area?.nombre ?? '—'}</TableCell>

@@ -1,11 +1,11 @@
 import { Form, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/AreaController';
 import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import InputError from '@/components/input-error';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import type { Area } from '@/types';
 
 type Props = {
     areas: Area[];
+    busqueda: string;
 };
 
 const PRIORIDAD_CONFIG: Record<number, { clase: string; etiqueta: string }> = {
@@ -38,7 +39,9 @@ const ALTURA_ENCABEZADO_EST = 41;
 const ALTURA_FILA_EST = 49;
 const POR_PAGINA_MOVIL = 10;
 
-export default function SeccionAreas({ areas }: Props) {
+export type SeccionAreasRef = { abrirFormulario: () => void };
+
+const SeccionAreas = forwardRef<SeccionAreasRef, Props>(function SeccionAreas({ areas, busqueda }, ref) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Area | null>(null);
     const [eliminando, setEliminando] = useState<Area | null>(null);
@@ -46,7 +49,24 @@ export default function SeccionAreas({ areas }: Props) {
     const contenedorRef = useRef<HTMLDivElement>(null);
     const [elementosPorPagina, setElementosPorPagina] = useState(POR_PAGINA_MOVIL);
 
-    const hayDatos = areas.length > 0;
+    useImperativeHandle(ref, () => ({
+        abrirFormulario() {
+            setEditando(null);
+            setAbierto(true);
+        },
+    }));
+
+    const areasFiltradas = useMemo(() => {
+        if (!busqueda.trim()) return areas;
+        const termino = busqueda.toLowerCase().trim();
+        return areas.filter((a) => a.nombre.toLowerCase().includes(termino));
+    }, [areas, busqueda]);
+
+    useEffect(() => {
+        setPagina(1);
+    }, [busqueda]);
+
+    const hayDatos = areasFiltradas.length > 0;
 
     useEffect(() => {
         if (!hayDatos) return;
@@ -77,15 +97,15 @@ export default function SeccionAreas({ areas }: Props) {
         };
     }, [hayDatos]);
 
-    const totalPaginas = Math.max(1, Math.ceil(areas.length / elementosPorPagina));
+    const totalPaginas = Math.max(1, Math.ceil(areasFiltradas.length / elementosPorPagina));
 
     useEffect(() => {
         if (pagina > totalPaginas) setPagina(totalPaginas);
     }, [totalPaginas, pagina]);
 
     const areasPaginadas = useMemo(
-        () => areas.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
-        [areas, pagina, elementosPorPagina],
+        () => areasFiltradas.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
+        [areasFiltradas, pagina, elementosPorPagina],
     );
 
     function abrirEdicion(area: Area) {
@@ -107,83 +127,11 @@ export default function SeccionAreas({ areas }: Props) {
     }
 
     return (
-        <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
-            <div className="shrink-0 flex items-center justify-between">
-                <p className="text-muted-foreground text-sm">{areas.length} area(s)</p>
-                <Dialog open={abierto} onOpenChange={(v) => { if (!v) cerrar(); else setAbierto(true); }}>
-                    <DialogTrigger asChild>
-                        <Button size="sm" onClick={() => { setEditando(null); setAbierto(true); }}>
-                            <Plus className="mr-1 h-4 w-4" /> Agregar
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>{editando ? 'Editar Area' : 'Nueva Area'}</DialogTitle>
-                        </DialogHeader>
-                        <Form
-                            action={editando ? update.url(editando.id) : store.url()}
-                            method={editando ? 'put' : 'post'}
-                            options={{ preserveScroll: true, onSuccess: cerrar }}
-                        >
-                            {({ processing, errors }) => (
-                                <>
-                                    <div className="grid gap-4 py-4">
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="nombre">Nombre *</Label>
-                                            <Input id="nombre" name="nombre" defaultValue={editando?.nombre ?? ''} required />
-                                            <InputError message={errors.nombre} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="edificio">Edificio</Label>
-                                                <Input id="edificio" name="edificio" defaultValue={editando?.edificio ?? ''} />
-                                                <InputError message={errors.edificio} />
-                                            </div>
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="nivel_prioridad">Nivel de prioridad *</Label>
-                                                <Select name="nivel_prioridad" defaultValue={String(editando?.nivel_prioridad ?? '3')}>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Seleccionar..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {[1, 2, 3, 4, 5].map((nivel) => (
-                                                            <SelectItem key={nivel} value={String(nivel)}>
-                                                                {nivel} {nivel === 1 ? '(Mas alta)' : nivel === 5 ? '(Mas baja)' : ''}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <InputError message={errors.nivel_prioridad} />
-                                            </div>
-                                        </div>
-                                        {editando && (
-                                            <div className="flex items-center gap-2">
-                                                <input type="hidden" name="activo" value="0" />
-                                                <label className="flex items-center gap-2 text-sm">
-                                                    <input type="checkbox" name="activo" value="1" defaultChecked={editando.activo} />
-                                                    Activo
-                                                </label>
-                                            </div>
-                                        )}
-                                        <InputError message={errors.general} />
-                                    </div>
-                                    <DialogFooter>
-                                        <Button type="button" variant="outline" onClick={cerrar}>Cancelar</Button>
-                                        <Button type="submit" disabled={processing}>
-                                            {processing ? 'Guardando...' : 'Guardar'}
-                                        </Button>
-                                    </DialogFooter>
-                                </>
-                            )}
-                        </Form>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            {areas.length === 0 ? (
+        <div className="flex flex-col md:min-h-0 md:flex-1">
+            {areasFiltradas.length === 0 ? (
                 <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-                    <p>No hay areas registradas.</p>
-                    <p className="text-sm">Agrega una para comenzar.</p>
+                    <p>{busqueda.trim() ? 'No se encontraron areas que coincidan con la busqueda.' : 'No hay areas registradas.'}</p>
+                    {!busqueda.trim() && <p className="text-sm">Agrega una para comenzar.</p>}
                 </div>
             ) : (
                 <>
@@ -191,7 +139,7 @@ export default function SeccionAreas({ areas }: Props) {
                     <Table className="min-w-[550px] table-fixed">
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[30%]">Nombre</TableHead>
+                                <TableHead className="w-[30%] pl-[25px]">Nombre</TableHead>
                                 <TableHead className="w-[25%]">Edificio</TableHead>
                                 <TableHead className="w-[18%]">Prioridad</TableHead>
                                 <TableHead className="w-[15%]">Estado</TableHead>
@@ -201,7 +149,7 @@ export default function SeccionAreas({ areas }: Props) {
                         <TableBody>
                             {areasPaginadas.map((area) => (
                                 <TableRow key={area.id}>
-                                    <TableCell className="font-medium">{area.nombre}</TableCell>
+                                    <TableCell className="pl-[25px] font-medium">{area.nombre}</TableCell>
                                     <TableCell>{area.edificio ?? '--'}</TableCell>
                                     <TableCell>
                                         <BadgePrioridad nivel={area.nivel_prioridad} />
@@ -229,7 +177,7 @@ export default function SeccionAreas({ areas }: Props) {
 
                 <div className="shrink-0 flex items-center justify-between pt-2">
                     <p className="text-muted-foreground text-xs">
-                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, areas.length)} de {areas.length}
+                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, areasFiltradas.length)} de {areasFiltradas.length}
                     </p>
                     <div className="flex items-center gap-1">
                         <Button size="sm" variant="outline" disabled={pagina === 1} onClick={() => setPagina(pagina - 1)}>
@@ -248,6 +196,70 @@ export default function SeccionAreas({ areas }: Props) {
                 </>
             )}
 
+            <Dialog open={abierto} onOpenChange={(v) => { if (!v) cerrar(); else setAbierto(true); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editando ? 'Editar Area' : 'Nueva Area'}</DialogTitle>
+                    </DialogHeader>
+                    <Form
+                        action={editando ? update.url(editando.id) : store.url()}
+                        method={editando ? 'put' : 'post'}
+                        options={{ preserveScroll: true, onSuccess: cerrar }}
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="nombre">Nombre *</Label>
+                                        <Input id="nombre" name="nombre" defaultValue={editando?.nombre ?? ''} required />
+                                        <InputError message={errors.nombre} />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edificio">Edificio</Label>
+                                            <Input id="edificio" name="edificio" defaultValue={editando?.edificio ?? ''} />
+                                            <InputError message={errors.edificio} />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="nivel_prioridad">Nivel de prioridad *</Label>
+                                            <Select name="nivel_prioridad" defaultValue={String(editando?.nivel_prioridad ?? '3')}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccionar..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {[1, 2, 3, 4, 5].map((nivel) => (
+                                                        <SelectItem key={nivel} value={String(nivel)}>
+                                                            {nivel} {nivel === 1 ? '(Mas alta)' : nivel === 5 ? '(Mas baja)' : ''}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <InputError message={errors.nivel_prioridad} />
+                                        </div>
+                                    </div>
+                                    {editando && (
+                                        <div className="flex items-center gap-2">
+                                            <input type="hidden" name="activo" value="0" />
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <input type="checkbox" name="activo" value="1" defaultChecked={editando.activo} />
+                                                Activo
+                                            </label>
+                                        </div>
+                                    )}
+                                    <InputError message={errors.general} />
+                                </div>
+                                <DialogFooter>
+                                    <Button type="button" variant="outline" onClick={cerrar}>Cancelar</Button>
+                                    <Button type="submit" disabled={processing}>
+                                        {processing ? 'Guardando...' : 'Guardar'}
+                                    </Button>
+                                </DialogFooter>
+                            </>
+                        )}
+                    </Form>
+                </DialogContent>
+            </Dialog>
+
             <DialogoConfirmacion
                 abierto={!!eliminando}
                 onCerrar={() => setEliminando(null)}
@@ -259,4 +271,6 @@ export default function SeccionAreas({ areas }: Props) {
             />
         </div>
     );
-}
+});
+
+export default SeccionAreas;

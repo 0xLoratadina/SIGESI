@@ -126,7 +126,7 @@ export default function SeccionCategorias({ categorias }: Props) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre</TableHead>
+                                <TableHead className="pl-[25px]">Nombre</TableHead>
                                 <TableHead>Padre</TableHead>
                                 <TableHead className="hidden sm:table-cell">Descripción</TableHead>
                                 <TableHead>Estado</TableHead>
@@ -136,7 +136,7 @@ export default function SeccionCategorias({ categorias }: Props) {
                         <TableBody>
                             {categorias.map((cat) => (
                                 <TableRow key={cat.id}>
-                                    <TableCell className="font-medium">
+                                    <TableCell className="pl-[25px] font-medium">
                                         {cat.padre_id && <span className="text-muted-foreground mr-1">↳</span>}
                                         {cat.nombre}
                                     </TableCell>
