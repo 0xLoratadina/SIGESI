@@ -21,6 +21,6 @@ class AuxiliarController extends Controller
             }
         }
 
-        return back();
+        return back()->with('exito', 'Auxiliar actualizado correctamente');
     }
 }

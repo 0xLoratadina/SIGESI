@@ -14,14 +14,14 @@ class AreaController extends Controller
     {
         Area::create($request->validated());
 
-        return back();
+        return back()->with('exito', 'Área creada correctamente');
     }
 
     public function update(ActualizarAreaRequest $request, Area $area): RedirectResponse
     {
         $area->update($request->validated());
 
-        return back();
+        return back()->with('exito', 'Área actualizada correctamente');
     }
 
     public function destroy(Area $area): RedirectResponse
@@ -32,6 +32,6 @@ class AreaController extends Controller
 
         $area->delete();
 
-        return back();
+        return back()->with('exito', 'Área eliminada correctamente');
     }
 }

@@ -136,16 +136,16 @@ export default function SeccionUbicaciones({ ubicaciones, areas }: Props) {
                     <p className="text-sm">Agrega una para comenzar.</p>
                 </div>
             ) : (
-                <div className="rounded-md border">
-                    <Table>
+                <div className="overflow-x-auto rounded-md border">
+                    <Table className="min-w-[500px]">
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Edificio</TableHead>
-                                <TableHead className="hidden sm:table-cell">Piso</TableHead>
-                                <TableHead className="hidden md:table-cell">Área</TableHead>
+                                <TableHead>Piso</TableHead>
+                                <TableHead>Área</TableHead>
                                 <TableHead>Estado</TableHead>
-                                <TableHead className="w-[100px]">Acciones</TableHead>
+                                <TableHead className="w-[80px]">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -153,8 +153,8 @@ export default function SeccionUbicaciones({ ubicaciones, areas }: Props) {
                                 <TableRow key={ubi.id}>
                                     <TableCell className="font-medium">{ubi.nombre}</TableCell>
                                     <TableCell>{ubi.edificio}</TableCell>
-                                    <TableCell className="hidden sm:table-cell">{ubi.piso ?? '—'}</TableCell>
-                                    <TableCell className="hidden md:table-cell">{ubi.area?.nombre ?? '—'}</TableCell>
+                                    <TableCell>{ubi.piso ?? '—'}</TableCell>
+                                    <TableCell>{ubi.area?.nombre ?? '—'}</TableCell>
                                     <TableCell>
                                         <Badge variant={ubi.activo ? 'default' : 'secondary'}>
                                             {ubi.activo ? 'Activo' : 'Inactivo'}

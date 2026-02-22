@@ -61,7 +61,7 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Panel" />
 
-            <div className="flex flex-col gap-6 p-4 md:min-h-0 md:flex-1 md:p-6">
+            <div className="flex min-w-0 flex-col gap-6 p-4 md:min-h-0 md:flex-1 md:p-6">
                 {/* Tarjetas de estadisticas */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <TarjetaEstadistica
@@ -87,7 +87,7 @@ export default function Dashboard({ estadisticas, tickets, filtroEstado, estados
                 </div>
 
                 {/* Filtro y tabla de tickets */}
-                <Card className="flex flex-col md:min-h-0 md:flex-1">
+                <Card className="flex min-w-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
                     <CardHeader className="flex shrink-0 flex-row items-center justify-between space-y-0 pb-4">
                         <CardTitle className="text-base font-medium">Tickets recientes</CardTitle>
                         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 import { Form, router } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/AreaController';
 import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +17,76 @@ type Props = {
     areas: Area[];
 };
 
+const PRIORIDAD_CONFIG: Record<number, { clase: string; etiqueta: string }> = {
+    1: { clase: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', etiqueta: 'Muy alta' },
+    2: { clase: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', etiqueta: 'Alta' },
+    3: { clase: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', etiqueta: 'Media' },
+    4: { clase: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200', etiqueta: 'Baja' },
+    5: { clase: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', etiqueta: 'Muy baja' },
+};
+
+function BadgePrioridad({ nivel }: { nivel: number }) {
+    const config = PRIORIDAD_CONFIG[nivel] ?? PRIORIDAD_CONFIG[3];
+    return (
+        <Badge className={`inline-flex w-20 justify-center border-transparent ${config.clase}`}>
+            {config.etiqueta}
+        </Badge>
+    );
+}
+
+const ALTURA_ENCABEZADO_EST = 41;
+const ALTURA_FILA_EST = 49;
+const POR_PAGINA_MOVIL = 10;
+
 export default function SeccionAreas({ areas }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<Area | null>(null);
     const [eliminando, setEliminando] = useState<Area | null>(null);
+    const [pagina, setPagina] = useState(1);
+    const contenedorRef = useRef<HTMLDivElement>(null);
+    const [elementosPorPagina, setElementosPorPagina] = useState(POR_PAGINA_MOVIL);
+
+    const hayDatos = areas.length > 0;
+
+    useEffect(() => {
+        if (!hayDatos) return;
+        const el = contenedorRef.current;
+        if (!el) return;
+        const mq = window.matchMedia('(min-width: 768px)');
+
+        function calcular() {
+            if (!mq.matches) {
+                setElementosPorPagina(POR_PAGINA_MOVIL);
+                return;
+            }
+            const thead = el.querySelector('thead');
+            const fila = el.querySelector('tbody tr');
+            const altEnc = thead?.getBoundingClientRect().height ?? ALTURA_ENCABEZADO_EST;
+            const altFila = fila?.getBoundingClientRect().height ?? ALTURA_FILA_EST;
+            const filas = Math.max(1, Math.floor((el.clientHeight - altEnc) / altFila));
+            setElementosPorPagina(filas);
+        }
+
+        const observer = new ResizeObserver(calcular);
+        observer.observe(el);
+        mq.addEventListener('change', calcular);
+
+        return () => {
+            observer.disconnect();
+            mq.removeEventListener('change', calcular);
+        };
+    }, [hayDatos]);
+
+    const totalPaginas = Math.max(1, Math.ceil(areas.length / elementosPorPagina));
+
+    useEffect(() => {
+        if (pagina > totalPaginas) setPagina(totalPaginas);
+    }, [totalPaginas, pagina]);
+
+    const areasPaginadas = useMemo(
+        () => areas.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
+        [areas, pagina, elementosPorPagina],
+    );
 
     function abrirEdicion(area: Area) {
         setEditando(area);
@@ -41,8 +107,8 @@ export default function SeccionAreas({ areas }: Props) {
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
+            <div className="shrink-0 flex items-center justify-between">
                 <p className="text-muted-foreground text-sm">{areas.length} area(s)</p>
                 <Dialog open={abierto} onOpenChange={(v) => { if (!v) cerrar(); else setAbierto(true); }}>
                     <DialogTrigger asChild>
@@ -120,23 +186,26 @@ export default function SeccionAreas({ areas }: Props) {
                     <p className="text-sm">Agrega una para comenzar.</p>
                 </div>
             ) : (
-                <div className="rounded-md border">
-                    <Table>
+                <>
+                <div ref={contenedorRef} className="overflow-x-auto rounded-md border md:min-h-0 md:flex-1 md:overflow-hidden">
+                    <Table className="min-w-[550px] table-fixed">
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre</TableHead>
-                                <TableHead className="hidden sm:table-cell">Edificio</TableHead>
-                                <TableHead>Nivel de prioridad</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="w-[100px]">Acciones</TableHead>
+                                <TableHead className="w-[30%]">Nombre</TableHead>
+                                <TableHead className="w-[25%]">Edificio</TableHead>
+                                <TableHead className="w-[18%]">Prioridad</TableHead>
+                                <TableHead className="w-[15%]">Estado</TableHead>
+                                <TableHead className="w-[12%]">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {areas.map((area) => (
+                            {areasPaginadas.map((area) => (
                                 <TableRow key={area.id}>
                                     <TableCell className="font-medium">{area.nombre}</TableCell>
-                                    <TableCell className="hidden sm:table-cell">{area.edificio ?? '--'}</TableCell>
-                                    <TableCell>{area.nivel_prioridad}</TableCell>
+                                    <TableCell>{area.edificio ?? '--'}</TableCell>
+                                    <TableCell>
+                                        <BadgePrioridad nivel={area.nivel_prioridad} />
+                                    </TableCell>
                                     <TableCell>
                                         <Badge variant={area.activo ? 'default' : 'secondary'}>
                                             {area.activo ? 'Activo' : 'Inactivo'}
@@ -157,6 +226,26 @@ export default function SeccionAreas({ areas }: Props) {
                         </TableBody>
                     </Table>
                 </div>
+
+                <div className="shrink-0 flex items-center justify-between pt-2">
+                    <p className="text-muted-foreground text-xs">
+                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, areas.length)} de {areas.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                        <Button size="sm" variant="outline" disabled={pagina === 1} onClick={() => setPagina(pagina - 1)}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        {Array.from({ length: totalPaginas }, (_, i) => (
+                            <Button key={i + 1} size="sm" variant={pagina === i + 1 ? 'default' : 'outline'} onClick={() => setPagina(i + 1)}>
+                                {i + 1}
+                            </Button>
+                        ))}
+                        <Button size="sm" variant="outline" disabled={pagina === totalPaginas} onClick={() => setPagina(pagina + 1)}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                </>
             )}
 
             <DialogoConfirmacion

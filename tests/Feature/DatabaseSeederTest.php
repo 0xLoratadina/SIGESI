@@ -12,13 +12,13 @@ it('crea usuario admin con correo correcto', function () {
         ->and($admin->esAdmin())->toBeTrue();
 });
 
-it('crea 6 usuarios de prueba', function () {
+it('crea 18 usuarios de prueba', function () {
     $this->seed();
 
-    expect(User::count())->toBe(6);
-    expect(User::where('rol', 'Administrador')->count())->toBe(1);
-    expect(User::where('rol', 'Auxiliar')->count())->toBe(2);
-    expect(User::where('rol', 'Solicitante')->count())->toBe(3);
+    expect(User::count())->toBe(18);
+    expect(User::where('rol', 'Administrador')->count())->toBe(2);
+    expect(User::where('rol', 'Auxiliar')->count())->toBe(6);
+    expect(User::where('rol', 'Solicitante')->count())->toBe(10);
 });
 
 it('crea configuraciones iniciales', function () {

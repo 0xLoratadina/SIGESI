@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import { Clock, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronLeft, ChevronRight, Clock, ExternalLink, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { update } from '@/actions/App/Http/Controllers/Admin/AuxiliarController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -18,14 +18,14 @@ const PLACEHOLDER_DIA = '__seleccionar__';
 
 const DIAS: Dia[] = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
 const ORDEN_DIA: Record<Dia, number> = { Lunes: 0, Martes: 1, Miercoles: 2, Jueves: 3, Viernes: 4, Sabado: 5, Domingo: 6 };
-const DIAS_INICIALES: Record<Dia, string> = {
-    Lunes: 'L',
-    Martes: 'Ma',
-    Miercoles: 'Mi',
-    Jueves: 'J',
-    Viernes: 'V',
-    Sabado: 'S',
-    Domingo: 'D',
+const DIAS_ABREVIADOS: Record<Dia, string> = {
+    Lunes: 'Lun',
+    Martes: 'Mar',
+    Miercoles: 'Mié',
+    Jueves: 'Jue',
+    Viernes: 'Vie',
+    Sabado: 'Sáb',
+    Domingo: 'Dom',
 };
 
 type HorarioFormulario = {
@@ -38,11 +38,60 @@ type Props = {
     auxiliares: AuxiliarAdmin[];
 };
 
+const ALTURA_ENCABEZADO_EST = 41;
+const ALTURA_FILA_EST = 49;
+const POR_PAGINA_MOVIL = 10;
+
 export default function SeccionAuxiliares({ auxiliares }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<AuxiliarAdmin | null>(null);
     const [procesando, setProcesando] = useState(false);
     const [errores, setErrores] = useState<Record<string, string>>({});
+    const [pagina, setPagina] = useState(1);
+    const contenedorRef = useRef<HTMLDivElement>(null);
+    const [elementosPorPagina, setElementosPorPagina] = useState(POR_PAGINA_MOVIL);
+
+    const hayDatos = auxiliares.length > 0;
+
+    useEffect(() => {
+        if (!hayDatos) return;
+        const el = contenedorRef.current;
+        if (!el) return;
+        const mq = window.matchMedia('(min-width: 768px)');
+
+        function calcular() {
+            if (!mq.matches) {
+                setElementosPorPagina(POR_PAGINA_MOVIL);
+                return;
+            }
+            const thead = el.querySelector('thead');
+            const fila = el.querySelector('tbody tr');
+            const altEnc = thead?.getBoundingClientRect().height ?? ALTURA_ENCABEZADO_EST;
+            const altFila = fila?.getBoundingClientRect().height ?? ALTURA_FILA_EST;
+            const filas = Math.max(1, Math.floor((el.clientHeight - altEnc) / altFila));
+            setElementosPorPagina(filas);
+        }
+
+        const observer = new ResizeObserver(calcular);
+        observer.observe(el);
+        mq.addEventListener('change', calcular);
+
+        return () => {
+            observer.disconnect();
+            mq.removeEventListener('change', calcular);
+        };
+    }, [hayDatos]);
+
+    const totalPaginas = Math.max(1, Math.ceil(auxiliares.length / elementosPorPagina));
+
+    useEffect(() => {
+        if (pagina > totalPaginas) setPagina(totalPaginas);
+    }, [totalPaginas, pagina]);
+
+    const auxiliaresPaginados = useMemo(
+        () => auxiliares.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
+        [auxiliares, pagina, elementosPorPagina],
+    );
 
     const [whatsappTelefono, setWhatsappTelefono] = useState('');
     const [especialidades, setEspecialidades] = useState('');
@@ -132,13 +181,36 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
 
     function resumenHorario(h?: HorarioAuxiliar[]) {
         if (!h || h.length === 0) return '--';
-        const diasUnicos = [...new Set(h.map((x) => x.dia))];
-        return diasUnicos.map((d) => DIAS_INICIALES[d]).join(', ');
+
+        const diasUnicos = [...new Set(h.map((x) => x.dia))].sort((a, b) => ORDEN_DIA[a] - ORDEN_DIA[b]);
+        const indices = diasUnicos.map((d) => ORDEN_DIA[d]);
+
+        // Detectar si todos tienen el mismo horario para mostrarlo
+        const inicios = h.map((x) => x.hora_inicio.substring(0, 5));
+        const fines = h.map((x) => x.hora_fin.substring(0, 5));
+        const mismoHorario = inicios.every((v) => v === inicios[0]) && fines.every((v) => v === fines[0]);
+        const sufijo = mismoHorario ? ` (${inicios[0]} - ${fines[0]})` : '';
+
+        // Verificar si son dias consecutivos
+        const sonConsecutivos = indices.every((val, i) => i === 0 || val === indices[i - 1] + 1);
+
+        if (diasUnicos.length === 7) {
+            return `Todos los días${sufijo}`;
+        }
+
+        if (sonConsecutivos && diasUnicos.length >= 2) {
+            // Lun-Vie o Lun-Sáb son los rangos mas comunes
+            const primero = DIAS_ABREVIADOS[diasUnicos[0]];
+            const ultimo = DIAS_ABREVIADOS[diasUnicos[diasUnicos.length - 1]];
+            return `${primero} - ${ultimo}${sufijo}`;
+        }
+
+        return diasUnicos.map((d) => DIAS_ABREVIADOS[d]).join(', ') + sufijo;
     }
 
     return (
-        <div className="space-y-4">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
+            <div className="shrink-0 flex items-center justify-between">
                 <p className="text-muted-foreground text-sm">{auxiliares.length} auxiliar(es)</p>
                 <Button size="sm" variant="outline" asChild>
                     <a href={usuarios().url + '?rol=Auxiliar'}>
@@ -153,20 +225,21 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
                     <p className="text-sm">Crea un usuario con rol Auxiliar desde la seccion de Usuarios.</p>
                 </div>
             ) : (
-                <div className="rounded-md border">
-                    <Table>
+                <>
+                <div ref={contenedorRef} className="overflow-x-auto rounded-md border md:min-h-0 md:flex-1 md:overflow-hidden">
+                    <Table className="min-w-[650px] table-fixed">
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nombre</TableHead>
-                                <TableHead>Teléfono</TableHead>
-                                <TableHead className="hidden sm:table-cell">Especialidades</TableHead>
-                                <TableHead className="hidden md:table-cell">Horario</TableHead>
-                                <TableHead>Disponible</TableHead>
-                                <TableHead className="w-[80px]">Acciones</TableHead>
+                                <TableHead className="w-[22%]">Nombre</TableHead>
+                                <TableHead className="w-[15%]">Teléfono</TableHead>
+                                <TableHead className="w-[20%]">Especialidades</TableHead>
+                                <TableHead className="w-[22%]">Horario</TableHead>
+                                <TableHead className="w-[12%]">Disponible</TableHead>
+                                <TableHead className="w-[9%]">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {auxiliares.map((auxiliar) => (
+                            {auxiliaresPaginados.map((auxiliar) => (
                                 <TableRow key={auxiliar.id}>
                                     <TableCell>
                                         <div>
@@ -179,14 +252,14 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
                                     <TableCell className="text-muted-foreground text-sm">
                                         {auxiliar.whatsapp_telefono ?? '--'}
                                     </TableCell>
-                                    <TableCell className="hidden sm:table-cell">
+                                    <TableCell>
                                         {auxiliar.especialidades ? (
-                                            <span className="text-sm">{auxiliar.especialidades}</span>
+                                            <span className="max-w-[200px] truncate text-sm" title={auxiliar.especialidades}>{auxiliar.especialidades}</span>
                                         ) : (
                                             <span className="text-muted-foreground text-sm">--</span>
                                         )}
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell">
+                                    <TableCell>
                                         <span className="text-muted-foreground text-sm">
                                             {resumenHorario(auxiliar.horarios_disponibilidad)}
                                         </span>
@@ -206,6 +279,26 @@ export default function SeccionAuxiliares({ auxiliares }: Props) {
                         </TableBody>
                     </Table>
                 </div>
+
+                <div className="shrink-0 flex items-center justify-between pt-2">
+                    <p className="text-muted-foreground text-xs">
+                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, auxiliares.length)} de {auxiliares.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                        <Button size="sm" variant="outline" disabled={pagina === 1} onClick={() => setPagina(pagina - 1)}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        {Array.from({ length: totalPaginas }, (_, i) => (
+                            <Button key={i + 1} size="sm" variant={pagina === i + 1 ? 'default' : 'outline'} onClick={() => setPagina(i + 1)}>
+                                {i + 1}
+                            </Button>
+                        ))}
+                        <Button size="sm" variant="outline" disabled={pagina === totalPaginas} onClick={() => setPagina(pagina + 1)}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                </>
             )}
 
             <Dialog open={abierto} onOpenChange={(v) => { if (!v) cerrar(); }}>

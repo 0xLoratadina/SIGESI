@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')-
     Route::post('usuarios', [UsuarioController::class, 'store'])->name('admin.usuarios.store');
     Route::put('usuarios/{user}', [UsuarioController::class, 'update'])->name('admin.usuarios.update');
     Route::delete('usuarios/{user}', [UsuarioController::class, 'destroy'])->name('admin.usuarios.destroy');
+    Route::delete('usuarios-masivo', [UsuarioController::class, 'destroyMultiple'])->name('admin.usuarios.destroy-multiple');
 
     Route::get('whatsapp', [WhatsAppController::class, 'index'])->name('admin.whatsapp');
     Route::get('whatsapp/actualizaciones', [WhatsAppController::class, 'actualizaciones'])->name('admin.whatsapp.actualizaciones');

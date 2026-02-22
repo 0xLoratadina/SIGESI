@@ -33,8 +33,8 @@ export default function Catalogos({ areas, auxiliares }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Configuracion" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <div className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-col gap-4 p-4 md:min-h-0 md:flex-1">
+                <div className="shrink-0 flex flex-wrap gap-2">
                     {secciones.map((s) => (
                         <Button
                             key={s.clave}
@@ -48,13 +48,13 @@ export default function Catalogos({ areas, auxiliares }: Props) {
                     ))}
                 </div>
 
-                <Card className="flex-1">
-                    <CardHeader>
+                <Card className="flex min-w-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
+                    <CardHeader className="shrink-0">
                         <CardTitle>
                             {secciones.find((s) => s.clave === activa)?.titulo}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex flex-col md:min-h-0 md:flex-1">
                         {activa === 'areas' && <SeccionAreas areas={areas} />}
                         {activa === 'auxiliares' && <SeccionAuxiliares auxiliares={auxiliares} />}
                     </CardContent>

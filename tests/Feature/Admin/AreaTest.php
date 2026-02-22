@@ -36,7 +36,8 @@ it('admin puede crear area', function () {
             'nombre' => 'Soporte Técnico',
             'edificio' => 'Edificio A',
             'nivel_prioridad' => 2,
-        ])->assertRedirect();
+        ])->assertRedirect()
+        ->assertSessionHas('exito');
 
     $this->assertDatabaseHas('areas', [
         'nombre' => 'Soporte Técnico',
@@ -68,7 +69,8 @@ it('admin puede actualizar area', function () {
     $this->actingAs($this->admin)
         ->put(route('admin.areas.update', $area), [
             'nombre' => 'Actualizado',
-        ])->assertRedirect();
+        ])->assertRedirect()
+        ->assertSessionHas('exito');
 
     expect($area->fresh()->nombre)->toBe('Actualizado');
 });
@@ -90,7 +92,8 @@ it('admin puede eliminar area sin dependencias', function () {
 
     $this->actingAs($this->admin)
         ->delete(route('admin.areas.destroy', $area))
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHas('exito');
 
     $this->assertDatabaseMissing('areas', ['id' => $area->id]);
 });

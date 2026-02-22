@@ -1,7 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Check, Copy, Pencil, Plus, Trash2, Users } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
-import { store, update, destroy } from '@/actions/App/Http/Controllers/Admin/UsuarioController';
+import { Check, ChevronLeft, ChevronRight, Copy, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { store, update, destroy, destroyMultiple } from '@/actions/App/Http/Controllers/Admin/UsuarioController';
 import DialogoConfirmacion from '@/components/dialogo-confirmacion';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { usuarios } from '@/routes/admin';
-import type { Area, BreadcrumbItem, Credenciales, DatosPaginados, SharedData } from '@/types';
+import type { Area, BreadcrumbItem, Credenciales, SharedData } from '@/types';
 import type { Rol, User } from '@/types/auth';
 
 type UsuarioAdmin = User & {
@@ -22,9 +22,8 @@ type UsuarioAdmin = User & {
 };
 
 type Props = {
-    usuarios: DatosPaginados<UsuarioAdmin>;
+    usuarios: UsuarioAdmin[];
     areas: { id: number; nombre: string }[];
-    filtroRol: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Usuarios', href: usuarios().url }];
@@ -37,13 +36,82 @@ const colorRol: Record<Rol, 'default' | 'secondary' | 'outline'> = {
     Solicitante: 'outline',
 };
 
-export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: Props) {
+const ALTURA_ENCABEZADO_EST = 41;
+const ALTURA_FILA_EST = 49;
+const POR_PAGINA_MOVIL = 10;
+
+export default function UsuariosAdmin({ usuarios, areas }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<UsuarioAdmin | null>(null);
     const [eliminando, setEliminando] = useState<UsuarioAdmin | null>(null);
     const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
     const [copiado, setCopiado] = useState(false);
+    const [busqueda, setBusqueda] = useState('');
+    const [filtroRol, setFiltroRol] = useState('');
+    const contenedorRef = useRef<HTMLDivElement>(null);
+    const [elementosPorPagina, setElementosPorPagina] = useState(POR_PAGINA_MOVIL);
+    const [pagina, setPagina] = useState(1);
+
+    const usuariosFiltrados = useMemo(() => {
+        let lista = usuarios;
+        if (filtroRol) {
+            lista = lista.filter((u) => u.rol === filtroRol);
+        }
+        if (busqueda.trim()) {
+            const termino = busqueda.toLowerCase().trim();
+            lista = lista.filter(
+                (u) => u.name.toLowerCase().includes(termino) || u.email.toLowerCase().includes(termino),
+            );
+        }
+        return lista;
+    }, [usuarios, filtroRol, busqueda]);
+
+    const hayDatos = usuariosFiltrados.length > 0;
+
+    useEffect(() => {
+        if (!hayDatos) return;
+        const el = contenedorRef.current;
+        if (!el) return;
+        const mq = window.matchMedia('(min-width: 768px)');
+
+        function calcular() {
+            if (!mq.matches) {
+                setElementosPorPagina(POR_PAGINA_MOVIL);
+                return;
+            }
+            const thead = el.querySelector('thead');
+            const fila = el.querySelector('tbody tr');
+            const altEnc = thead?.getBoundingClientRect().height ?? ALTURA_ENCABEZADO_EST;
+            const altFila = fila?.getBoundingClientRect().height ?? ALTURA_FILA_EST;
+            const filas = Math.max(1, Math.floor((el.clientHeight - altEnc) / altFila));
+            setElementosPorPagina(filas);
+        }
+
+        const observer = new ResizeObserver(calcular);
+        observer.observe(el);
+        mq.addEventListener('change', calcular);
+
+        return () => {
+            observer.disconnect();
+            mq.removeEventListener('change', calcular);
+        };
+    }, [hayDatos]);
+
+    const totalPaginas = Math.max(1, Math.ceil(usuariosFiltrados.length / elementosPorPagina));
+
+    useEffect(() => {
+        if (pagina > totalPaginas) setPagina(totalPaginas);
+    }, [totalPaginas, pagina]);
+
+    useEffect(() => {
+        setPagina(1);
+    }, [busqueda, filtroRol]);
+
+    const usuariosPaginados = useMemo(
+        () => usuariosFiltrados.slice((pagina - 1) * elementosPorPagina, pagina * elementosPorPagina),
+        [usuariosFiltrados, pagina, elementosPorPagina],
+    );
 
     const formCrear = useForm({
         name: '',
@@ -107,10 +175,6 @@ export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: 
         });
     }
 
-    function filtrarRol(rol: string) {
-        router.get(usuarios().url, rol ? { rol } : {}, { preserveState: true, preserveScroll: true });
-    }
-
     function copiarCredenciales() {
         if (!credenciales) return;
         const texto = `Credenciales SIGESI\nNombre: ${credenciales.nombre}\nEmail: ${credenciales.email}\nContrasena temporal: ${credenciales.password}\nRol: ${credenciales.rol}`;
@@ -123,55 +187,66 @@ export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: 
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Usuarios" />
 
-            <div className="flex h-full flex-1 flex-col gap-4 p-4">
-                <div className="flex flex-wrap gap-2">
-                    <Button variant={!filtroRol ? 'default' : 'outline'} size="sm" onClick={() => filtrarRol('')}>
-                        <Users className="mr-1 h-4 w-4" />
-                        Todos
-                    </Button>
-                    {roles.map((rol) => (
-                        <Button key={rol} variant={filtroRol === rol ? 'default' : 'outline'} size="sm" onClick={() => filtrarRol(rol)}>
-                            {rol}
+            <div className="flex min-w-0 flex-col gap-4 p-4 md:min-h-0 md:flex-1">
+                <div className="shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant={!filtroRol ? 'default' : 'outline'} size="sm" onClick={() => setFiltroRol('')}>
+                            <Users className="mr-1 h-4 w-4" />
+                            Todos
                         </Button>
-                    ))}
+                        {roles.map((rol) => (
+                            <Button key={rol} variant={filtroRol === rol ? 'default' : 'outline'} size="sm" onClick={() => setFiltroRol(rol)}>
+                                {rol}
+                            </Button>
+                        ))}
+                    </div>
+                    <div className="relative w-full sm:w-64">
+                        <Search className="text-muted-foreground absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2" />
+                        <Input
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                            placeholder="Buscar por nombre o email..."
+                            className="pl-9"
+                        />
+                    </div>
                 </div>
 
-                <Card className="flex-1">
-                    <CardHeader className="flex flex-row items-center justify-between">
+                <Card className="flex min-w-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
+                    <CardHeader className="shrink-0 flex flex-row items-center justify-between">
                         <CardTitle>Usuarios</CardTitle>
                         <Button size="sm" onClick={abrirCrear}>
                             <Plus className="mr-1 h-4 w-4" /> Agregar
                         </Button>
                     </CardHeader>
-                    <CardContent>
-                        {paginado.data.length === 0 ? (
+                    <CardContent className="flex flex-col md:min-h-0 md:flex-1">
+                        {usuariosFiltrados.length === 0 ? (
                             <div className="text-muted-foreground flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-                                <p>No hay usuarios registrados.</p>
+                                <p>{busqueda.trim() ? 'No se encontraron usuarios que coincidan con la busqueda.' : 'No hay usuarios registrados.'}</p>
                             </div>
                         ) : (
                             <>
-                                <div className="rounded-md border">
-                                    <Table>
+                                <div ref={contenedorRef} className="overflow-x-auto rounded-md border md:min-h-0 md:flex-1 md:overflow-hidden">
+                                    <Table className="min-w-[700px] table-fixed">
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Nombre</TableHead>
-                                                <TableHead>Email</TableHead>
-                                                <TableHead>Rol</TableHead>
-                                                <TableHead className="hidden md:table-cell">Area</TableHead>
-                                                <TableHead>Estado</TableHead>
-                                                <TableHead className="hidden sm:table-cell">Onboarding</TableHead>
-                                                <TableHead className="w-[100px]">Acciones</TableHead>
+                                                <TableHead className="w-[18%]">Nombre</TableHead>
+                                                <TableHead className="w-[22%]">Email</TableHead>
+                                                <TableHead className="w-[12%]">Rol</TableHead>
+                                                <TableHead className="w-[18%]">Area</TableHead>
+                                                <TableHead className="w-[10%]">Estado</TableHead>
+                                                <TableHead className="w-[12%]">Onboarding</TableHead>
+                                                <TableHead className="w-[8%]">Acciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {paginado.data.map((usuario) => (
+                                            {usuariosPaginados.map((usuario) => (
                                                 <TableRow key={usuario.id}>
-                                                    <TableCell className="font-medium">{usuario.name}</TableCell>
-                                                    <TableCell className="text-sm text-muted-foreground">{usuario.email}</TableCell>
+                                                    <TableCell className="truncate font-medium">{usuario.name}</TableCell>
+                                                    <TableCell className="truncate text-sm text-muted-foreground">{usuario.email}</TableCell>
                                                     <TableCell>
                                                         <Badge variant={colorRol[usuario.rol]}>{usuario.rol}</Badge>
                                                     </TableCell>
-                                                    <TableCell className="hidden md:table-cell">
+                                                    <TableCell className="truncate">
                                                         {usuario.area?.nombre ?? '--'}
                                                     </TableCell>
                                                     <TableCell>
@@ -179,7 +254,7 @@ export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: 
                                                             {usuario.activo ? 'Activo' : 'Inactivo'}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="hidden sm:table-cell">
+                                                    <TableCell>
                                                         <Badge variant={usuario.onboarding_completado ? 'default' : 'outline'}>
                                                             {usuario.onboarding_completado ? 'Completado' : 'Pendiente'}
                                                         </Badge>
@@ -202,26 +277,24 @@ export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: 
                                     </Table>
                                 </div>
 
-                                {/* Paginacion */}
-                                {paginado.last_page > 1 && (
-                                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                                        <span>
-                                            Mostrando {paginado.from}--{paginado.to} de {paginado.total}
-                                        </span>
-                                        <div className="flex gap-1">
-                                            {paginado.links.map((enlace, i) => (
-                                                <Button
-                                                    key={i}
-                                                    size="sm"
-                                                    variant={enlace.active ? 'default' : 'outline'}
-                                                    disabled={!enlace.url}
-                                                    onClick={() => enlace.url && router.get(enlace.url, {}, { preserveState: true })}
-                                                    dangerouslySetInnerHTML={{ __html: enlace.label }}
-                                                />
-                                            ))}
-                                        </div>
+                                <div className="shrink-0 flex items-center justify-between pt-2">
+                                    <p className="text-muted-foreground text-xs">
+                                        Mostrando {(pagina - 1) * elementosPorPagina + 1} a {Math.min(pagina * elementosPorPagina, usuariosFiltrados.length)} de {usuariosFiltrados.length}
+                                    </p>
+                                    <div className="flex items-center gap-1">
+                                        <Button size="sm" variant="outline" disabled={pagina === 1} onClick={() => setPagina(pagina - 1)}>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        {Array.from({ length: totalPaginas }, (_, i) => (
+                                            <Button key={i + 1} size="sm" variant={pagina === i + 1 ? 'default' : 'outline'} onClick={() => setPagina(i + 1)}>
+                                                {i + 1}
+                                            </Button>
+                                        ))}
+                                        <Button size="sm" variant="outline" disabled={pagina === totalPaginas} onClick={() => setPagina(pagina + 1)}>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                )}
+                                </div>
                             </>
                         )}
                     </CardContent>

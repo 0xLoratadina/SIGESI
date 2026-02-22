@@ -37,7 +37,8 @@ it('admin puede actualizar whatsapp de auxiliar', function () {
     $this->actingAs($this->admin)
         ->put(route('admin.auxiliares.update', $this->auxiliar), [
             'whatsapp_telefono' => '+52 1234567890',
-        ])->assertRedirect();
+        ])->assertRedirect()
+        ->assertSessionHas('exito');
 
     expect($this->auxiliar->fresh()->whatsapp_telefono)->toBe('+52 1234567890');
 });

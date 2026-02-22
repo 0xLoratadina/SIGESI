@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Rol;
+use App\Models\Ticket;
 use App\Models\User;
 
 test('solo admin puede acceder a gestion de usuarios', function () {
@@ -202,7 +203,81 @@ test('admin no puede eliminar cuenta de otro admin', function () {
     expect(User::find($otroAdmin->id))->not->toBeNull();
 });
 
-test('pagina de usuarios muestra listado paginado', function () {
+test('admin puede eliminar multiples usuarios sin tickets', function () {
+    $admin = User::factory()->administrador()->create();
+    $usuarios = User::factory()->solicitante()->count(3)->create();
+
+    $this->actingAs($admin)
+        ->delete(route('admin.usuarios.destroy-multiple'), [
+            'ids' => $usuarios->pluck('id')->all(),
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('exito');
+
+    foreach ($usuarios as $usuario) {
+        expect(User::find($usuario->id))->toBeNull();
+    }
+});
+
+test('admin puede desactivar multiples usuarios con tickets', function () {
+    $admin = User::factory()->administrador()->create();
+    $usuarios = User::factory()->solicitante()->count(2)->create();
+
+    foreach ($usuarios as $usuario) {
+        Ticket::factory()->create(['solicitante_id' => $usuario->id, 'creador_id' => $usuario->id]);
+    }
+
+    $this->actingAs($admin)
+        ->delete(route('admin.usuarios.destroy-multiple'), [
+            'ids' => $usuarios->pluck('id')->all(),
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('exito');
+
+    foreach ($usuarios as $usuario) {
+        $usuario->refresh();
+        expect($usuario->activo)->toBeFalse();
+    }
+});
+
+test('eliminacion masiva ignora administradores', function () {
+    $admin = User::factory()->administrador()->create();
+    $otroAdmin = User::factory()->administrador()->create();
+    $solicitante = User::factory()->solicitante()->create();
+
+    $this->actingAs($admin)
+        ->delete(route('admin.usuarios.destroy-multiple'), [
+            'ids' => [$otroAdmin->id, $solicitante->id],
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('exito');
+
+    expect(User::find($otroAdmin->id))->not->toBeNull();
+    expect(User::find($solicitante->id))->toBeNull();
+});
+
+test('eliminacion masiva rechaza ids vacios', function () {
+    $admin = User::factory()->administrador()->create();
+
+    $this->actingAs($admin)
+        ->delete(route('admin.usuarios.destroy-multiple'), [
+            'ids' => [],
+        ])
+        ->assertSessionHasErrors('ids');
+});
+
+test('solicitante no puede usar eliminacion masiva', function () {
+    $solicitante = User::factory()->solicitante()->create();
+    $otro = User::factory()->solicitante()->create();
+
+    $this->actingAs($solicitante)
+        ->delete(route('admin.usuarios.destroy-multiple'), [
+            'ids' => [$otro->id],
+        ])
+        ->assertForbidden();
+});
+
+test('pagina de usuarios muestra listado', function () {
     $admin = User::factory()->administrador()->create();
     User::factory()->count(3)->create();
 
@@ -210,7 +285,7 @@ test('pagina de usuarios muestra listado paginado', function () {
         ->get(route('admin.usuarios'))
         ->assertInertia(fn ($pagina) => $pagina
             ->component('admin/usuarios')
-            ->has('usuarios.data', 4) // 3 + admin
+            ->has('usuarios', 4) // 3 + admin
             ->has('areas')
         );
 });

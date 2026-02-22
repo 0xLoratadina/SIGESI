@@ -17,25 +17,18 @@ use Inertia\Response;
 
 class UsuarioController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        $consulta = User::query()->with('area:id,nombre');
-
-        if ($request->filled('rol')) {
-            $consulta->where('rol', $request->rol);
-        }
-
         return Inertia::render('admin/usuarios', [
-            'usuarios' => $consulta
+            'usuarios' => User::query()
+                ->with('area:id,nombre')
                 ->orderByDesc('created_at')
-                ->paginate(15)
-                ->withQueryString(),
+                ->get(),
             'areas' => Area::query()
                 ->where('activo', true)
                 ->select('id', 'nombre')
                 ->orderBy('nombre')
                 ->get(),
-            'filtroRol' => $request->rol ?? '',
         ]);
     }
 
@@ -76,6 +69,41 @@ class UsuarioController extends Controller
         $user->update($datos);
 
         return back();
+    }
+
+    public function destroyMultiple(Request $request): RedirectResponse
+    {
+        $ids = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:users,id',
+        ])['ids'];
+
+        $usuarios = User::whereIn('id', $ids)
+            ->where('rol', '!=', Rol::Administrador)
+            ->get();
+
+        $eliminados = 0;
+        $desactivados = 0;
+
+        foreach ($usuarios as $usuario) {
+            if ($usuario->ticketsSolicitados()->exists() || $usuario->ticketsCreados()->exists()) {
+                $usuario->update(['activo' => false]);
+                $desactivados++;
+            } else {
+                $usuario->delete();
+                $eliminados++;
+            }
+        }
+
+        $mensaje = collect();
+        if ($eliminados > 0) {
+            $mensaje->push("$eliminados eliminado(s)");
+        }
+        if ($desactivados > 0) {
+            $mensaje->push("$desactivados desactivado(s)");
+        }
+
+        return back()->with('exito', 'Usuarios: '.$mensaje->implode(', '));
     }
 
     public function destroy(User $user): RedirectResponse
