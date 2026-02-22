@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\Departamento;
+use App\Models\Area;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,7 +21,7 @@ class UbicacionFactory extends Factory
             'piso' => fake()->optional()->randomElement(['Planta Baja', 'Piso 1', 'Piso 2']),
             'salon' => fake()->optional()->numerify('Salon ###'),
             'descripcion' => fake()->optional()->sentence(),
-            'departamento_id' => Departamento::factory(),
+            'area_id' => Area::factory(),
             'activo' => true,
         ];
     }

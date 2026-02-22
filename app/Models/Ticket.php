@@ -19,13 +19,13 @@ class Ticket extends Model
         'descripcion',
         'solicitante_id',
         'creador_id',
-        'departamento_id',
+        'area_id',
         'categoria_id',
         'prioridad_id',
         'ubicacion_id',
         'canal',
         'estado',
-        'tecnico_id',
+        'auxiliar_id',
         'asignado_por',
         'fecha_asignacion',
         'fecha_resolucion',
@@ -81,9 +81,9 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'creador_id');
     }
 
-    public function tecnico(): BelongsTo
+    public function auxiliar(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'tecnico_id');
+        return $this->belongsTo(User::class, 'auxiliar_id');
     }
 
     public function asignadoPor(): BelongsTo
@@ -91,9 +91,9 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'asignado_por');
     }
 
-    public function departamento(): BelongsTo
+    public function area(): BelongsTo
     {
-        return $this->belongsTo(Departamento::class);
+        return $this->belongsTo(Area::class);
     }
 
     public function categoria(): BelongsTo

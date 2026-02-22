@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Enums\Rol;
+use App\Models\Area;
 use App\Models\Categoria;
-use App\Models\Departamento;
 use App\Models\Prioridad;
 use App\Models\Ticket;
 use App\Models\Ubicacion;
@@ -23,7 +23,7 @@ class DashboardController extends Controller
 
         $consulta = match ($usuario->rol) {
             Rol::Administrador => Ticket::query(),
-            Rol::Tecnico => Ticket::query()->where('tecnico_id', $usuario->id),
+            Rol::Auxiliar => Ticket::query()->where('auxiliar_id', $usuario->id),
             Rol::Solicitante => Ticket::query()->where('solicitante_id', $usuario->id),
         };
 
@@ -52,7 +52,7 @@ class DashboardController extends Controller
         $tickets = $consulta
             ->with([
                 'solicitante:id,name',
-                'tecnico:id,name',
+                'auxiliar:id,name',
                 'prioridad:id,nombre,color',
                 'categoria:id,nombre',
             ])
@@ -66,10 +66,10 @@ class DashboardController extends Controller
             'filtroEstado' => $filtroEstado,
             'estados' => array_column(EstadoTicket::cases(), 'value'),
             'catalogos' => Inertia::defer(fn () => [
-                'departamentos' => Departamento::query()->where('activo', true)->select('id', 'nombre')->orderBy('nombre')->get(),
+                'areas' => Area::query()->where('activo', true)->select('id', 'nombre')->orderBy('nombre')->get(),
                 'categorias' => Categoria::query()->where('activo', true)->select('id', 'nombre', 'padre_id')->orderBy('nombre')->get(),
                 'prioridades' => Prioridad::query()->where('activo', true)->select('id', 'nombre', 'color', 'nivel')->orderBy('nivel')->get(),
-                'ubicaciones' => Ubicacion::query()->where('activo', true)->select('id', 'nombre', 'edificio', 'piso', 'departamento_id')->orderBy('nombre')->get(),
+                'ubicaciones' => Ubicacion::query()->where('activo', true)->select('id', 'nombre', 'edificio', 'piso', 'area_id')->orderBy('nombre')->get(),
                 'canales' => array_column(Canal::cases(), 'value'),
                 'usuarios' => $usuario->esAdmin()
                     ? User::query()->where('activo', true)->select('id', 'name', 'email')->orderBy('name')->get()

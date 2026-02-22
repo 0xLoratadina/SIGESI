@@ -19,10 +19,10 @@ test('solicitante no puede acceder a gestion de usuarios', function () {
         ->assertForbidden();
 });
 
-test('tecnico no puede acceder a gestion de usuarios', function () {
-    $tecnico = User::factory()->tecnico()->create();
+test('auxiliar no puede acceder a gestion de usuarios', function () {
+    $auxiliar = User::factory()->auxiliar()->create();
 
-    $this->actingAs($tecnico)
+    $this->actingAs($auxiliar)
         ->get(route('admin.usuarios'))
         ->assertForbidden();
 });
@@ -75,24 +75,24 @@ test('usuario creado por admin tiene email verificado automaticamente', function
         ->post(route('admin.usuarios.store'), [
             'name' => 'Test User',
             'email' => 'test@sigesi.com',
-            'rol' => Rol::Tecnico->value,
+            'rol' => Rol::Auxiliar->value,
         ]);
 
     expect(User::where('email', 'test@sigesi.com')->first())
         ->email_verified_at->not->toBeNull();
 });
 
-test('tecnico creado por admin no requiere onboarding', function () {
+test('auxiliar creado por admin no requiere onboarding', function () {
     $admin = User::factory()->administrador()->create();
 
     $this->actingAs($admin)
         ->post(route('admin.usuarios.store'), [
-            'name' => 'Tecnico Nuevo',
-            'email' => 'tecnico@sigesi.com',
-            'rol' => Rol::Tecnico->value,
+            'name' => 'Auxiliar Nuevo',
+            'email' => 'auxiliar@sigesi.com',
+            'rol' => Rol::Auxiliar->value,
         ]);
 
-    $usuario = User::where('email', 'tecnico@sigesi.com')->first();
+    $usuario = User::where('email', 'auxiliar@sigesi.com')->first();
     expect($usuario)
         ->onboarding_completado->toBeTrue()
         ->debe_cambiar_password->toBeFalse();
@@ -135,14 +135,14 @@ test('admin puede actualizar datos de usuario', function () {
         ->put(route('admin.usuarios.update', $usuario), [
             'name' => 'Nombre Actualizado',
             'email' => $usuario->email,
-            'rol' => Rol::Tecnico->value,
+            'rol' => Rol::Auxiliar->value,
         ])
         ->assertRedirect();
 
     $usuario->refresh();
     expect($usuario)
         ->name->toBe('Nombre Actualizado')
-        ->rol->toBe(Rol::Tecnico);
+        ->rol->toBe(Rol::Auxiliar);
 });
 
 test('admin puede resetear contrasena de usuario', function () {
@@ -211,6 +211,6 @@ test('pagina de usuarios muestra listado paginado', function () {
         ->assertInertia(fn ($pagina) => $pagina
             ->component('admin/usuarios')
             ->has('usuarios.data', 4) // 3 + admin
-            ->has('departamentos')
+            ->has('areas')
         );
 });

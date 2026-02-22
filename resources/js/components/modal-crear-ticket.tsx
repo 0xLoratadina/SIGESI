@@ -4,7 +4,7 @@ import { type FormEvent, useState } from 'react';
 import { store } from '@/actions/App/Http/Controllers/TicketController';
 import InputError from '@/components/input-error';
 import ModalCrearCategoriaRapida from '@/components/modal-crear-categoria-rapida';
-import ModalCrearDepartamentoRapido from '@/components/modal-crear-departamento-rapido';
+import ModalCrearAreaRapida from '@/components/modal-crear-area-rapida';
 import ModalCrearPrioridadRapida from '@/components/modal-crear-prioridad-rapida';
 import ModalCrearUbicacionRapida from '@/components/modal-crear-ubicacion-rapida';
 import ZonaAdjuntos from '@/components/zona-adjuntos';
@@ -47,7 +47,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
     const { data, setData, post, processing, errors, reset, progress } = useForm({
         titulo: '',
         descripcion: '',
-        departamento_id: '',
+        area_id: '',
         categoria_id: '',
         prioridad_id: '',
         canal: 'Web',
@@ -89,7 +89,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
         formData.append('descripcion', data.descripcion);
 
         if (!esSolicitante) {
-            if (data.departamento_id) formData.append('departamento_id', data.departamento_id);
+            if (data.area_id) formData.append('area_id', data.area_id);
             if (data.categoria_id) formData.append('categoria_id', data.categoria_id);
             if (data.prioridad_id) formData.append('prioridad_id', data.prioridad_id);
             if (data.canal) formData.append('canal', data.canal);
@@ -150,7 +150,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                 ) : (
                     <form onSubmit={enviarFormulario} className="space-y-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="titulo">Título</Label>
+                            <Label htmlFor="titulo">Titulo</Label>
                             <Input
                                 id="titulo"
                                 value={data.titulo}
@@ -163,7 +163,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="descripcion">Descripción</Label>
+                            <Label htmlFor="descripcion">Descripcion</Label>
                             <Textarea
                                 id="descripcion"
                                 value={data.descripcion}
@@ -175,37 +175,37 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                             <InputError message={errors.descripcion} />
                         </div>
 
-                        {/* Campos avanzados: solo para Admin y Tecnico */}
+                        {/* Campos avanzados: solo para Admin y Auxiliar */}
                         {!esSolicitante && catalogos && (
                             <>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div className="grid gap-2">
                                         <div className="flex items-center justify-between">
-                                            <Label>Departamento</Label>
-                                            {esAdmin && <ModalCrearDepartamentoRapido onCreado={recargarCatalogos} />}
+                                            <Label>Area</Label>
+                                            {esAdmin && <ModalCrearAreaRapida onCreado={recargarCatalogos} />}
                                         </div>
-                                        {catalogos.departamentos.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No hay departamentos.</p>
+                                        {catalogos.areas.length === 0 ? (
+                                            <p className="text-muted-foreground text-sm">No hay areas.</p>
                                         ) : (
-                                            <Select value={data.departamento_id} onValueChange={(v) => setData('departamento_id', v)}>
+                                            <Select value={data.area_id} onValueChange={(v) => setData('area_id', v)}>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Seleccionar..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {catalogos.departamentos.map((depto) => (
-                                                        <SelectItem key={depto.id} value={String(depto.id)}>
-                                                            {depto.nombre}
+                                                    {catalogos.areas.map((area) => (
+                                                        <SelectItem key={area.id} value={String(area.id)}>
+                                                            {area.nombre}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>
                                         )}
-                                        <InputError message={errors.departamento_id} />
+                                        <InputError message={errors.area_id} />
                                     </div>
 
                                     <div className="grid gap-2">
                                         <div className="flex items-center justify-between">
-                                            <Label>Categoría</Label>
+                                            <Label>Categoria</Label>
                                             {esAdmin && (
                                                 <ModalCrearCategoriaRapida
                                                     categoriasPadre={catalogos.categorias}
@@ -214,7 +214,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                             )}
                                         </div>
                                         {catalogos.categorias.length === 0 ? (
-                                            <p className="text-muted-foreground text-sm">No hay categorías.</p>
+                                            <p className="text-muted-foreground text-sm">No hay categorias.</p>
                                         ) : (
                                             <Select value={data.categoria_id} onValueChange={(v) => setData('categoria_id', v)}>
                                                 <SelectTrigger>
@@ -297,14 +297,14 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                 <div className="grid gap-2">
                                     <div className="flex items-center justify-between">
                                         <Label>
-                                            Ubicación <span className="text-muted-foreground">(opcional)</span>
+                                            Ubicacion <span className="text-muted-foreground">(opcional)</span>
                                         </Label>
-                                        {esAdmin && <ModalCrearUbicacionRapida departamentos={catalogos.departamentos} onCreado={recargarCatalogos} />}
+                                        {esAdmin && <ModalCrearUbicacionRapida areas={catalogos.areas} onCreado={recargarCatalogos} />}
                                     </div>
                                     {catalogos.ubicaciones.length > 0 && (
                                         <Select value={data.ubicacion_id} onValueChange={(v) => setData('ubicacion_id', v)}>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Sin ubicación" />
+                                                <SelectValue placeholder="Sin ubicacion" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {catalogos.ubicaciones.map((ubicacion) => (

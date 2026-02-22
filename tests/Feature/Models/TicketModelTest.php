@@ -3,36 +3,36 @@
 use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Models\Actividad;
+use App\Models\Area;
 use App\Models\Categoria;
 use App\Models\Comentario;
-use App\Models\Departamento;
 use App\Models\Prioridad;
 use App\Models\Ticket;
 use App\Models\Ubicacion;
 use App\Models\User;
 
-it('pertenece a solicitante, creador, tecnico, departamento, categoria y prioridad', function () {
-    $departamento = Departamento::factory()->create();
+it('pertenece a solicitante, creador, auxiliar, area, categoria y prioridad', function () {
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
-    $ubicacion = Ubicacion::factory()->create(['departamento_id' => $departamento->id]);
+    $ubicacion = Ubicacion::factory()->create(['area_id' => $area->id]);
     $solicitante = User::factory()->create();
-    $tecnico = User::factory()->tecnico()->create();
+    $auxiliar = User::factory()->auxiliar()->create();
 
     $ticket = Ticket::factory()->create([
         'solicitante_id' => $solicitante->id,
         'creador_id' => $solicitante->id,
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
         'ubicacion_id' => $ubicacion->id,
-        'tecnico_id' => $tecnico->id,
+        'auxiliar_id' => $auxiliar->id,
     ]);
 
     expect($ticket->solicitante->id)->toBe($solicitante->id)
         ->and($ticket->creador->id)->toBe($solicitante->id)
-        ->and($ticket->tecnico->id)->toBe($tecnico->id)
-        ->and($ticket->departamento->id)->toBe($departamento->id)
+        ->and($ticket->auxiliar->id)->toBe($auxiliar->id)
+        ->and($ticket->area->id)->toBe($area->id)
         ->and($ticket->categoria->id)->toBe($categoria->id)
         ->and($ticket->prioridad->id)->toBe($prioridad->id)
         ->and($ticket->ubicacion->id)->toBe($ubicacion->id);
@@ -62,7 +62,7 @@ it('crea ticket con factory state asignado', function () {
     $ticket = Ticket::factory()->asignado()->create();
 
     expect($ticket->estado)->toBe(EstadoTicket::Asignado)
-        ->and($ticket->tecnico_id)->not->toBeNull()
+        ->and($ticket->auxiliar_id)->not->toBeNull()
         ->and($ticket->fecha_asignacion)->not->toBeNull();
 });
 

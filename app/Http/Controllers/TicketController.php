@@ -26,7 +26,7 @@ class TicketController extends Controller
         }
 
         if ($request->user()->esSolicitante()) {
-            $datos['departamento_id'] = $datos['departamento_id'] ?? $request->user()->departamento_id;
+            $datos['area_id'] = $datos['area_id'] ?? $request->user()->area_id;
             $datos['categoria_id'] = $datos['categoria_id'] ?? Categoria::query()->where('activo', true)->value('id');
             $datos['prioridad_id'] = $datos['prioridad_id'] ?? Prioridad::query()->where('activo', true)->orderByDesc('nivel')->value('id');
         }

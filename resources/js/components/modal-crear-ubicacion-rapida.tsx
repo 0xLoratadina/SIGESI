@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { CatalogosDashboard } from '@/types';
 
 type Props = {
-    departamentos: CatalogosDashboard['departamentos'];
+    areas: CatalogosDashboard['areas'];
     onCreado: () => void;
 };
 
-export default function ModalCrearUbicacionRapida({ departamentos, onCreado }: Props) {
+export default function ModalCrearUbicacionRapida({ areas, onCreado }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [procesando, setProcesando] = useState(false);
     const [errores, setErrores] = useState<Record<string, string>>({});
@@ -41,13 +41,13 @@ export default function ModalCrearUbicacionRapida({ departamentos, onCreado }: P
     return (
         <Dialog open={abierto} onOpenChange={setAbierto}>
             <DialogTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear ubicación">
+                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear ubicacion">
                     <Plus className="h-3.5 w-3.5" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[400px]" onClick={(e) => e.stopPropagation()}>
                 <DialogHeader>
-                    <DialogTitle>Nueva Ubicación</DialogTitle>
+                    <DialogTitle>Nueva Ubicacion</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={enviar} className="grid gap-4 py-2">
                     <div className="grid gap-2">
@@ -68,26 +68,26 @@ export default function ModalCrearUbicacionRapida({ departamentos, onCreado }: P
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="ubi-salon">Salón</Label>
+                            <Label htmlFor="ubi-salon">Salon</Label>
                             <Input id="ubi-salon" name="salon" />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Departamento</Label>
-                            {departamentos.length > 0 ? (
-                                <Select name="departamento_id">
+                            <Label>Area</Label>
+                            {areas.length > 0 ? (
+                                <Select name="area_id">
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Sin departamento" />
+                                        <SelectValue placeholder="Sin area" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {departamentos.map((depto) => (
-                                            <SelectItem key={depto.id} value={String(depto.id)}>
-                                                {depto.nombre}
+                                        {areas.map((area) => (
+                                            <SelectItem key={area.id} value={String(area.id)}>
+                                                {area.nombre}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             ) : (
-                                <p className="text-muted-foreground text-sm">Sin departamentos</p>
+                                <p className="text-muted-foreground text-sm">Sin areas</p>
                             )}
                         </div>
                     </div>

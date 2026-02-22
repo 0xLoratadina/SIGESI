@@ -4,7 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class CrearDepartamentoRequest extends FormRequest
+class CrearAreaRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -17,11 +17,9 @@ class CrearDepartamentoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => ['required', 'string', 'max:150', 'unique:departamentos,nombre'],
-            'codigo' => ['required', 'string', 'max:10', 'unique:departamentos,codigo'],
+            'nombre' => ['required', 'string', 'max:150', 'unique:areas,nombre'],
             'edificio' => ['nullable', 'string', 'max:100'],
-            'telefono' => ['nullable', 'string', 'max:20'],
-            'jefe' => ['nullable', 'string', 'max:150'],
+            'nivel_prioridad' => ['nullable', 'integer', 'min:1', 'max:5'],
         ];
     }
 
@@ -33,10 +31,7 @@ class CrearDepartamentoRequest extends FormRequest
         return [
             'nombre.required' => 'El nombre es obligatorio.',
             'nombre.max' => 'El nombre no puede exceder 150 caracteres.',
-            'nombre.unique' => 'Ya existe un departamento con este nombre.',
-            'codigo.required' => 'El código es obligatorio.',
-            'codigo.max' => 'El código no puede exceder 10 caracteres.',
-            'codigo.unique' => 'Ya existe un departamento con este código.',
+            'nombre.unique' => 'Ya existe un área con este nombre.',
         ];
     }
 }

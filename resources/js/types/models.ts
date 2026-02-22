@@ -2,14 +2,20 @@ import type { User } from './auth';
 
 export type EstadoTicket = 'Abierto' | 'Asignado' | 'EnProgreso' | 'EnEspera' | 'Resuelto' | 'Cerrado' | 'Cancelado';
 export type Canal = 'Web' | 'WhatsApp' | 'Telefono' | 'Correo' | 'Presencial';
+export type Dia = 'Lunes' | 'Martes' | 'Miercoles' | 'Jueves' | 'Viernes' | 'Sabado' | 'Domingo';
 
-export type Departamento = {
+export type HorarioAuxiliar = {
+    id: number;
+    dia: Dia;
+    hora_inicio: string;
+    hora_fin: string;
+};
+
+export type Area = {
     id: number;
     nombre: string;
-    codigo: string;
     edificio: string | null;
-    telefono: string | null;
-    jefe: string | null;
+    nivel_prioridad: number;
     activo: boolean;
 };
 
@@ -39,15 +45,30 @@ export type Ubicacion = {
     piso: string | null;
     salon: string | null;
     descripcion: string | null;
-    departamento_id: number | null;
+    area_id: number | null;
     activo: boolean;
 };
 
+export type CategoriaSimple = Pick<Categoria, 'id' | 'nombre'>;
+
+export type AuxiliarAdmin = {
+    id: number;
+    name: string;
+    email: string;
+    area_id: number | null;
+    whatsapp_telefono: string | null;
+    especialidades: string | null;
+    disponible: boolean;
+    area?: { id: number; nombre: string } | null;
+    categorias_especialidad?: CategoriaSimple[];
+    horarios_disponibilidad?: HorarioAuxiliar[];
+};
+
 export type CatalogosDashboard = {
-    departamentos: Pick<Departamento, 'id' | 'nombre'>[];
+    areas: Pick<Area, 'id' | 'nombre'>[];
     categorias: Pick<Categoria, 'id' | 'nombre' | 'padre_id'>[];
     prioridades: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel'>[];
-    ubicaciones: Pick<Ubicacion, 'id' | 'nombre' | 'edificio' | 'piso' | 'departamento_id'>[];
+    ubicaciones: Pick<Ubicacion, 'id' | 'nombre' | 'edificio' | 'piso' | 'area_id'>[];
     canales: Canal[];
     usuarios: { id: number; name: string; email: string }[];
 };
@@ -56,8 +77,8 @@ export type CategoriaConPadre = Categoria & {
     padre?: Pick<Categoria, 'id' | 'nombre'> | null;
 };
 
-export type UbicacionConDepto = Ubicacion & {
-    departamento?: Pick<Departamento, 'id' | 'nombre'> | null;
+export type UbicacionConArea = Ubicacion & {
+    area?: Pick<Area, 'id' | 'nombre'> | null;
 };
 
 export type Ticket = {
@@ -67,13 +88,13 @@ export type Ticket = {
     descripcion: string;
     solicitante_id: number;
     creador_id: number;
-    departamento_id: number;
+    area_id: number;
     categoria_id: number;
     prioridad_id: number;
     ubicacion_id: number | null;
     canal: Canal;
     estado: EstadoTicket;
-    tecnico_id: number | null;
+    auxiliar_id: number | null;
     asignado_por: number | null;
     fecha_asignacion: string | null;
     fecha_resolucion: string | null;
@@ -86,7 +107,7 @@ export type Ticket = {
     updated_at: string;
     // Relaciones cargadas (eager loading)
     solicitante?: Pick<User, 'id' | 'name'>;
-    tecnico?: Pick<User, 'id' | 'name'> | null;
+    auxiliar?: Pick<User, 'id' | 'name'> | null;
     prioridad?: Pick<Prioridad, 'id' | 'nombre' | 'color'>;
     categoria?: Pick<Categoria, 'id' | 'nombre'>;
 };

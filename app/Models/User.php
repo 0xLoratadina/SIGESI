@@ -24,7 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'rol',
-        'departamento_id',
+        'area_id',
         'ubicacion_id',
         'telefono',
         'num_empleado',
@@ -32,6 +32,8 @@ class User extends Authenticatable
         'activo',
         'disponible',
         'max_tickets',
+        'whatsapp_telefono',
+        'especialidades',
         'debe_cambiar_password',
         'onboarding_completado',
         'fecha_onboarding',
@@ -73,9 +75,9 @@ class User extends Authenticatable
         return $this->rol === Rol::Administrador;
     }
 
-    public function esTecnico(): bool
+    public function esAuxiliar(): bool
     {
-        return $this->rol === Rol::Tecnico;
+        return $this->rol === Rol::Auxiliar;
     }
 
     public function esSolicitante(): bool
@@ -90,9 +92,9 @@ class User extends Authenticatable
 
     // ── Relaciones ──────────────────────────────────────────
 
-    public function departamento(): BelongsTo
+    public function area(): BelongsTo
     {
-        return $this->belongsTo(Departamento::class);
+        return $this->belongsTo(Area::class);
     }
 
     public function ubicacion(): BelongsTo
@@ -112,7 +114,7 @@ class User extends Authenticatable
 
     public function ticketsAsignados(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'tecnico_id');
+        return $this->hasMany(Ticket::class, 'auxiliar_id');
     }
 
     public function comentarios(): HasMany
@@ -135,9 +137,14 @@ class User extends Authenticatable
         return $this->hasMany(Articulo::class, 'autor_id');
     }
 
-    public function especialidades(): BelongsToMany
+    public function categoriasEspecialidad(): BelongsToMany
     {
-        return $this->belongsToMany(Categoria::class, 'tecnico_categoria')
+        return $this->belongsToMany(Categoria::class, 'auxiliar_categoria')
             ->withTimestamps();
+    }
+
+    public function horariosDisponibilidad(): HasMany
+    {
+        return $this->hasMany(HorarioAuxiliar::class);
     }
 }

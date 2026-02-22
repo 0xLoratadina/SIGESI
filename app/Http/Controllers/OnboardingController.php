@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\CompletarOnboardingRequest;
-use App\Models\Departamento;
+use App\Models\Area;
 use App\Models\Ubicacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,14 +20,14 @@ class OnboardingController extends Controller
         }
 
         return Inertia::render('onboarding/index', [
-            'departamentos' => Departamento::query()
+            'areas' => Area::query()
                 ->where('activo', true)
                 ->select('id', 'nombre')
                 ->orderBy('nombre')
                 ->get(),
             'ubicaciones' => Ubicacion::query()
                 ->where('activo', true)
-                ->select('id', 'nombre', 'departamento_id')
+                ->select('id', 'nombre', 'area_id')
                 ->orderBy('nombre')
                 ->get(),
             'debeCambiarPassword' => $request->user()->debe_cambiar_password,

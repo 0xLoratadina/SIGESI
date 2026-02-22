@@ -6,16 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Departamento extends Model
+class Area extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'nombre',
-        'codigo',
         'edificio',
-        'telefono',
-        'jefe',
+        'nivel_prioridad',
         'activo',
     ];
 
@@ -23,6 +21,7 @@ class Departamento extends Model
     {
         return [
             'activo' => 'boolean',
+            'nivel_prioridad' => 'integer',
         ];
     }
 

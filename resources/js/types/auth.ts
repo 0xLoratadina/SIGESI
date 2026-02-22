@@ -1,4 +1,4 @@
-export type Rol = 'Administrador' | 'Tecnico' | 'Solicitante';
+export type Rol = 'Administrador' | 'Auxiliar' | 'Solicitante';
 
 export type User = {
     id: number;
@@ -8,7 +8,7 @@ export type User = {
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
     rol: Rol;
-    departamento_id: number | null;
+    area_id: number | null;
     ubicacion_id: number | null;
     telefono: string | null;
     num_empleado: string | null;
@@ -16,6 +16,8 @@ export type User = {
     activo: boolean;
     disponible: boolean;
     max_tickets: number;
+    whatsapp_telefono: string | null;
+    especialidades: string | null;
     debe_cambiar_password: boolean;
     onboarding_completado: boolean;
     fecha_onboarding: string | null;

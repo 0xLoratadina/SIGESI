@@ -29,7 +29,7 @@ class UserFactory extends Factory
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
             'rol' => Rol::Solicitante,
-            'departamento_id' => null,
+            'area_id' => null,
             'telefono' => fake()->numerify('##########'),
             'num_empleado' => fake()->unique()->numerify('EMP####'),
             'cargo' => fake()->jobTitle(),
@@ -65,10 +65,10 @@ class UserFactory extends Factory
         ]);
     }
 
-    public function tecnico(): static
+    public function auxiliar(): static
     {
         return $this->state(fn (array $attributes) => [
-            'rol' => Rol::Tecnico,
+            'rol' => Rol::Auxiliar,
             'disponible' => true,
             'max_tickets' => fake()->numberBetween(5, 15),
         ]);

@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Departamento;
+use App\Models\Area;
 use App\Models\Ticket;
 use App\Models\Ubicacion;
 use App\Models\User;
@@ -17,25 +17,25 @@ it('solo admin puede crear ubicacion', function () {
         ])->assertForbidden();
 });
 
-it('admin puede crear ubicacion con departamento', function () {
-    $depto = Departamento::factory()->create();
+it('admin puede crear ubicacion con area', function () {
+    $area = Area::factory()->create();
 
     $this->actingAs($this->admin)
         ->post(route('admin.ubicaciones.store'), [
             'nombre' => 'Sala de Servidores',
             'edificio' => 'Edificio Central',
             'piso' => 'Planta Baja',
-            'departamento_id' => $depto->id,
+            'area_id' => $area->id,
         ])->assertRedirect();
 
     $this->assertDatabaseHas('ubicaciones', [
         'nombre' => 'Sala de Servidores',
         'edificio' => 'Edificio Central',
-        'departamento_id' => $depto->id,
+        'area_id' => $area->id,
     ]);
 });
 
-it('admin puede crear ubicacion sin departamento', function () {
+it('admin puede crear ubicacion sin area', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.ubicaciones.store'), [
             'nombre' => 'Recepción',
@@ -44,7 +44,7 @@ it('admin puede crear ubicacion sin departamento', function () {
 
     $this->assertDatabaseHas('ubicaciones', [
         'nombre' => 'Recepción',
-        'departamento_id' => null,
+        'area_id' => null,
     ]);
 });
 
@@ -55,12 +55,13 @@ it('validacion rechaza nombre vacio', function () {
         ])->assertSessionHasErrors('nombre');
 });
 
-it('validacion rechaza departamento_id inexistente', function () {
+it('validacion rechaza area_id inexistente', function () {
     $this->actingAs($this->admin)
         ->post(route('admin.ubicaciones.store'), [
             'nombre' => 'Test',
-            'departamento_id' => 9999,
-        ])->assertSessionHasErrors('departamento_id');
+            'edificio' => 'Edificio',
+            'area_id' => 9999,
+        ])->assertSessionHasErrors('area_id');
 });
 
 it('admin puede actualizar ubicacion', function () {

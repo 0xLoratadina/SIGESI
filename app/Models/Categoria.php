@@ -49,9 +49,9 @@ class Categoria extends Model
         return $this->hasMany(Articulo::class);
     }
 
-    public function tecnicos(): BelongsToMany
+    public function auxiliares(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'tecnico_categoria')
+        return $this->belongsToMany(User::class, 'auxiliar_categoria')
             ->withTimestamps();
     }
 }

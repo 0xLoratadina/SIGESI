@@ -3,8 +3,8 @@
 use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Models\Adjunto;
+use App\Models\Area;
 use App\Models\Categoria;
-use App\Models\Departamento;
 use App\Models\Prioridad;
 use App\Models\Ticket;
 use App\Models\Ubicacion;
@@ -16,18 +16,18 @@ test('invitados no pueden crear tickets', function () {
     $this->post(route('tickets.store'))->assertRedirect(route('login'));
 });
 
-test('validacion rechaza datos incompletos para tecnico', function () {
-    $this->actingAs(User::factory()->tecnico()->create());
+test('validacion rechaza datos incompletos para auxiliar', function () {
+    $this->actingAs(User::factory()->auxiliar()->create());
 
     $this->post(route('tickets.store'), [])
-        ->assertSessionHasErrors(['titulo', 'descripcion', 'departamento_id', 'categoria_id', 'prioridad_id']);
+        ->assertSessionHasErrors(['titulo', 'descripcion', 'area_id', 'categoria_id', 'prioridad_id']);
 });
 
 test('solicitante solo requiere titulo y descripcion', function () {
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     Categoria::factory()->create();
     Prioridad::factory()->create();
-    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $usuario = User::factory()->solicitante()->create(['area_id' => $area->id]);
 
     $this->actingAs($usuario);
 
@@ -37,11 +37,11 @@ test('solicitante solo requiere titulo y descripcion', function () {
     ])->assertRedirect(route('dashboard'));
 });
 
-test('solicitante recibe valores por defecto para departamento categoria y prioridad', function () {
-    $departamento = Departamento::factory()->create();
+test('solicitante recibe valores por defecto para area categoria y prioridad', function () {
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
-    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $usuario = User::factory()->solicitante()->create(['area_id' => $area->id]);
 
     $this->actingAs($usuario);
 
@@ -52,40 +52,40 @@ test('solicitante recibe valores por defecto para departamento categoria y prior
 
     $ticket = Ticket::first();
     expect($ticket)
-        ->departamento_id->toBe($departamento->id)
+        ->area_id->toBe($area->id)
         ->categoria_id->toBe($categoria->id)
         ->prioridad_id->toBe($prioridad->id);
 });
 
 test('titulo no puede exceder 255 caracteres', function () {
-    $this->actingAs(User::factory()->tecnico()->create());
+    $this->actingAs(User::factory()->auxiliar()->create());
 
     $this->post(route('tickets.store'), [
         'titulo' => str_repeat('a', 256),
         'descripcion' => 'Descripcion valida del problema',
-        'departamento_id' => Departamento::factory()->create()->id,
+        'area_id' => Area::factory()->create()->id,
         'categoria_id' => Categoria::factory()->create()->id,
         'prioridad_id' => Prioridad::factory()->create()->id,
     ])->assertSessionHasErrors('titulo');
 });
 
 test('descripcion debe tener al menos 10 caracteres', function () {
-    $this->actingAs(User::factory()->tecnico()->create());
+    $this->actingAs(User::factory()->auxiliar()->create());
 
     $this->post(route('tickets.store'), [
         'titulo' => 'Titulo valido',
         'descripcion' => 'Corta',
-        'departamento_id' => Departamento::factory()->create()->id,
+        'area_id' => Area::factory()->create()->id,
         'categoria_id' => Categoria::factory()->create()->id,
         'prioridad_id' => Prioridad::factory()->create()->id,
     ])->assertSessionHasErrors('descripcion');
 });
 
 test('solicitante puede crear un ticket', function () {
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
-    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $usuario = User::factory()->solicitante()->create(['area_id' => $area->id]);
 
     $this->actingAs($usuario);
 
@@ -103,31 +103,31 @@ test('solicitante puede crear un ticket', function () {
         ->numero->toStartWith('TK-');
 });
 
-test('tecnico puede crear un ticket', function () {
-    $tecnico = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+test('auxiliar puede crear un ticket', function () {
+    $auxiliar = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
-    $this->actingAs($tecnico);
+    $this->actingAs($auxiliar);
 
     $this->post(route('tickets.store'), [
         'titulo' => 'Problema con servidor',
         'descripcion' => 'El servidor de correo esta respondiendo lentamente desde las 8am',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ])->assertRedirect(route('dashboard'));
 
     expect(Ticket::first())
-        ->solicitante_id->toBe($tecnico->id)
-        ->creador_id->toBe($tecnico->id);
+        ->solicitante_id->toBe($auxiliar->id)
+        ->creador_id->toBe($auxiliar->id);
 });
 
 test('admin puede crear ticket para otro usuario', function () {
     $admin = User::factory()->administrador()->create();
     $solicitante = User::factory()->solicitante()->create();
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
@@ -136,7 +136,7 @@ test('admin puede crear ticket para otro usuario', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Solicitud de software',
         'descripcion' => 'El usuario necesita instalacion de AutoCAD en su equipo de trabajo',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
         'solicitante_id' => $solicitante->id,
@@ -150,10 +150,10 @@ test('admin puede crear ticket para otro usuario', function () {
 });
 
 test('solicitante no puede asignar otro usuario como solicitante', function () {
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
-    $solicitante = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $solicitante = User::factory()->solicitante()->create(['area_id' => $area->id]);
     $otroUsuario = User::factory()->create();
 
     $this->actingAs($solicitante);
@@ -168,8 +168,8 @@ test('solicitante no puede asignar otro usuario como solicitante', function () {
 });
 
 test('numero de ticket se genera automaticamente', function () {
-    $usuario = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+    $usuario = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
@@ -178,7 +178,7 @@ test('numero de ticket se genera automaticamente', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Primer ticket',
         'descripcion' => 'Descripcion del primer ticket de prueba completa',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ]);
@@ -186,7 +186,7 @@ test('numero de ticket se genera automaticamente', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Segundo ticket',
         'descripcion' => 'Descripcion del segundo ticket de prueba completa',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ]);
@@ -197,8 +197,8 @@ test('numero de ticket se genera automaticamente', function () {
 });
 
 test('ticket se puede crear con ubicacion', function () {
-    $usuario = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+    $usuario = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
     $ubicacion = Ubicacion::factory()->create();
@@ -208,7 +208,7 @@ test('ticket se puede crear con ubicacion', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Problema en laboratorio',
         'descripcion' => 'Las computadoras del laboratorio no encienden correctamente',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
         'ubicacion_id' => $ubicacion->id,
@@ -218,8 +218,8 @@ test('ticket se puede crear con ubicacion', function () {
 });
 
 test('canal por defecto es Web si no se especifica', function () {
-    $usuario = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+    $usuario = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
@@ -228,7 +228,7 @@ test('canal por defecto es Web si no se especifica', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Problema de red',
         'descripcion' => 'La red inalambrica del edificio principal esta muy lenta',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ])->assertRedirect(route('dashboard'));
@@ -237,8 +237,8 @@ test('canal por defecto es Web si no se especifica', function () {
 });
 
 test('fecha limite se calcula automaticamente de la prioridad', function () {
-    $usuario = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+    $usuario = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create(['horas_resolucion' => 24]);
 
@@ -247,7 +247,7 @@ test('fecha limite se calcula automaticamente de la prioridad', function () {
     $this->post(route('tickets.store'), [
         'titulo' => 'Ticket con fecha limite',
         'descripcion' => 'Verificar que la fecha limite se calcule correctamente',
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ]);
@@ -258,10 +258,10 @@ test('fecha limite se calcula automaticamente de la prioridad', function () {
 test('solicitante puede adjuntar archivos al crear ticket', function () {
     Storage::fake('local');
 
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
-    $usuario = User::factory()->solicitante()->create(['departamento_id' => $departamento->id]);
+    $usuario = User::factory()->solicitante()->create(['area_id' => $area->id]);
 
     $this->actingAs($usuario);
 

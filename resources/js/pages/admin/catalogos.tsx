@@ -1,42 +1,37 @@
 import { Head } from '@inertiajs/react';
-import { Building2, FolderTree, Gauge, MapPin } from 'lucide-react';
+import { Building2, UserCog } from 'lucide-react';
 import { useState } from 'react';
-import SeccionCategorias from '@/components/admin/seccion-categorias';
-import SeccionDepartamentos from '@/components/admin/seccion-departamentos';
-import SeccionPrioridades from '@/components/admin/seccion-prioridades';
-import SeccionUbicaciones from '@/components/admin/seccion-ubicaciones';
+import SeccionAreas from '@/components/admin/seccion-areas';
+import SeccionAuxiliares from '@/components/admin/seccion-auxiliares';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { catalogos } from '@/routes/admin';
-import type { BreadcrumbItem, CategoriaConPadre, Departamento, Prioridad, UbicacionConDepto } from '@/types';
+import type { BreadcrumbItem, Area } from '@/types';
+import type { AuxiliarAdmin } from '@/types/models';
 
-type Seccion = 'departamentos' | 'categorias' | 'prioridades' | 'ubicaciones';
+type Seccion = 'areas' | 'auxiliares';
 
 type Props = {
-    departamentos: Departamento[];
-    categorias: CategoriaConPadre[];
-    prioridades: Prioridad[];
-    ubicaciones: UbicacionConDepto[];
+    areas: Area[];
+    auxiliares: AuxiliarAdmin[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Catálogos', href: catalogos().url },
+    { title: 'Configuracion', href: catalogos().url },
 ];
 
 const secciones: { clave: Seccion; titulo: string; icono: typeof Building2 }[] = [
-    { clave: 'departamentos', titulo: 'Departamentos', icono: Building2 },
-    { clave: 'categorias', titulo: 'Categorías', icono: FolderTree },
-    { clave: 'prioridades', titulo: 'Prioridades', icono: Gauge },
-    { clave: 'ubicaciones', titulo: 'Ubicaciones', icono: MapPin },
+    { clave: 'areas', titulo: 'Areas', icono: Building2 },
+    { clave: 'auxiliares', titulo: 'Auxiliares', icono: UserCog },
 ];
 
-export default function Catalogos({ departamentos, categorias, prioridades, ubicaciones }: Props) {
-    const [activa, setActiva] = useState<Seccion>('departamentos');
+export default function Catalogos({ areas, auxiliares }: Props) {
+    const [activa, setActiva] = useState<Seccion>('areas');
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Catálogos" />
+            <Head title="Configuracion" />
 
             <div className="flex h-full flex-1 flex-col gap-4 p-4">
                 <div className="flex flex-wrap gap-2">
@@ -60,10 +55,8 @@ export default function Catalogos({ departamentos, categorias, prioridades, ubic
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {activa === 'departamentos' && <SeccionDepartamentos departamentos={departamentos} />}
-                        {activa === 'categorias' && <SeccionCategorias categorias={categorias} />}
-                        {activa === 'prioridades' && <SeccionPrioridades prioridades={prioridades} />}
-                        {activa === 'ubicaciones' && <SeccionUbicaciones ubicaciones={ubicaciones} departamentos={departamentos} />}
+                        {activa === 'areas' && <SeccionAreas areas={areas} />}
+                        {activa === 'auxiliares' && <SeccionAuxiliares auxiliares={auxiliares} />}
                     </CardContent>
                 </Card>
             </div>

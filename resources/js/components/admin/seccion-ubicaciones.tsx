@@ -12,19 +12,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import type { Departamento, UbicacionConDepto } from '@/types';
+import type { Area, UbicacionConArea } from '@/types';
 
 type Props = {
-    ubicaciones: UbicacionConDepto[];
-    departamentos: Departamento[];
+    ubicaciones: UbicacionConArea[];
+    areas: Area[];
 };
 
-export default function SeccionUbicaciones({ ubicaciones, departamentos }: Props) {
+export default function SeccionUbicaciones({ ubicaciones, areas }: Props) {
     const [abierto, setAbierto] = useState(false);
-    const [editando, setEditando] = useState<UbicacionConDepto | null>(null);
-    const [eliminando, setEliminando] = useState<UbicacionConDepto | null>(null);
+    const [editando, setEditando] = useState<UbicacionConArea | null>(null);
+    const [eliminando, setEliminando] = useState<UbicacionConArea | null>(null);
 
-    function abrirEdicion(ubi: UbicacionConDepto) {
+    function abrirEdicion(ubi: UbicacionConArea) {
         setEditando(ubi);
         setAbierto(true);
     }
@@ -86,20 +86,20 @@ export default function SeccionUbicaciones({ ubicaciones, departamentos }: Props
                                                 <Input id="salon" name="salon" defaultValue={editando?.salon ?? ''} />
                                             </div>
                                             <div className="grid gap-2">
-                                                <Label>Departamento</Label>
-                                                <Select name="departamento_id" defaultValue={editando?.departamento_id?.toString() ?? ''}>
+                                                <Label>Área</Label>
+                                                <Select name="area_id" defaultValue={editando?.area_id?.toString() ?? ''}>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="Ninguno" />
+                                                        <SelectValue placeholder="Ninguna" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {departamentos.map((d) => (
-                                                            <SelectItem key={d.id} value={d.id.toString()}>
-                                                                {d.nombre}
+                                                        {areas.map((a) => (
+                                                            <SelectItem key={a.id} value={a.id.toString()}>
+                                                                {a.nombre}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                <InputError message={errors.departamento_id} />
+                                                <InputError message={errors.area_id} />
                                             </div>
                                         </div>
                                         <div className="grid gap-2">
@@ -143,7 +143,7 @@ export default function SeccionUbicaciones({ ubicaciones, departamentos }: Props
                                 <TableHead>Nombre</TableHead>
                                 <TableHead>Edificio</TableHead>
                                 <TableHead className="hidden sm:table-cell">Piso</TableHead>
-                                <TableHead className="hidden md:table-cell">Departamento</TableHead>
+                                <TableHead className="hidden md:table-cell">Área</TableHead>
                                 <TableHead>Estado</TableHead>
                                 <TableHead className="w-[100px]">Acciones</TableHead>
                             </TableRow>
@@ -154,7 +154,7 @@ export default function SeccionUbicaciones({ ubicaciones, departamentos }: Props
                                     <TableCell className="font-medium">{ubi.nombre}</TableCell>
                                     <TableCell>{ubi.edificio}</TableCell>
                                     <TableCell className="hidden sm:table-cell">{ubi.piso ?? '—'}</TableCell>
-                                    <TableCell className="hidden md:table-cell">{ubi.departamento?.nombre ?? '—'}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{ubi.area?.nombre ?? '—'}</TableCell>
                                     <TableCell>
                                         <Badge variant={ubi.activo ? 'default' : 'secondary'}>
                                             {ubi.activo ? 'Activo' : 'Inactivo'}

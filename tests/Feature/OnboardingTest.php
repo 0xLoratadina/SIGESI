@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Departamento;
+use App\Models\Area;
 use App\Models\Ubicacion;
 use App\Models\User;
 
@@ -12,8 +12,8 @@ test('solicitante sin onboarding es redirigido a pagina de onboarding', function
         ->assertRedirect(route('onboarding.index'));
 });
 
-test('tecnico sin onboarding no es redirigido a onboarding', function () {
-    $usuario = User::factory()->tecnico()->sinOnboarding()->create();
+test('auxiliar sin onboarding no es redirigido a onboarding', function () {
+    $usuario = User::factory()->auxiliar()->sinOnboarding()->create();
 
     $this->actingAs($usuario)
         ->get(route('dashboard'))
@@ -44,7 +44,7 @@ test('pagina de onboarding se renderiza correctamente', function () {
         ->assertSuccessful()
         ->assertInertia(fn ($pagina) => $pagina
             ->component('onboarding/index')
-            ->has('departamentos')
+            ->has('areas')
             ->has('ubicaciones')
             ->has('debeCambiarPassword')
         );
@@ -99,17 +99,17 @@ test('solicitante puede completar onboarding con datos validos', function () {
         'name' => 'Usuario Temporal',
         'telefono' => null,
         'cargo' => null,
-        'departamento_id' => null,
+        'area_id' => null,
     ]);
-    $departamento = Departamento::factory()->create();
-    $ubicacion = Ubicacion::factory()->create(['departamento_id' => $departamento->id]);
+    $area = Area::factory()->create();
+    $ubicacion = Ubicacion::factory()->create(['area_id' => $area->id]);
 
     $this->actingAs($usuario)
         ->post(route('onboarding.completar'), [
             'name' => 'María López García',
             'telefono' => '5551234567',
             'cargo' => 'Analista de Sistemas',
-            'departamento_id' => $departamento->id,
+            'area_id' => $area->id,
             'ubicacion_id' => $ubicacion->id,
         ])
         ->assertRedirect(route('dashboard'));
@@ -121,7 +121,7 @@ test('solicitante puede completar onboarding con datos validos', function () {
         ->name->toBe('María López García')
         ->telefono->toBe('5551234567')
         ->cargo->toBe('Analista de Sistemas')
-        ->departamento_id->toBe($departamento->id)
+        ->area_id->toBe($area->id)
         ->ubicacion_id->toBe($ubicacion->id);
 });
 
@@ -129,16 +129,16 @@ test('solicitante puede completar onboarding sin ubicacion', function () {
     $usuario = User::factory()->solicitante()->sinOnboarding()->create([
         'telefono' => null,
         'cargo' => null,
-        'departamento_id' => null,
+        'area_id' => null,
     ]);
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
 
     $this->actingAs($usuario)
         ->post(route('onboarding.completar'), [
             'name' => 'Pedro Coordinador',
             'telefono' => '5551234567',
             'cargo' => 'Coordinador',
-            'departamento_id' => $departamento->id,
+            'area_id' => $area->id,
         ])
         ->assertRedirect(route('dashboard'));
 
@@ -153,7 +153,7 @@ test('onboarding rechaza datos incompletos', function () {
 
     $this->actingAs($usuario)
         ->post(route('onboarding.completar'), [])
-        ->assertSessionHasErrors(['name', 'telefono', 'cargo', 'departamento_id']);
+        ->assertSessionHasErrors(['name', 'telefono', 'cargo', 'area_id']);
 });
 
 test('onboarding no requiere verificacion de email', function () {

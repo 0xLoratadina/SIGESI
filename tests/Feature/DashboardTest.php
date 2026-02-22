@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\EstadoTicket;
+use App\Models\Area;
 use App\Models\Categoria;
-use App\Models\Departamento;
 use App\Models\Prioridad;
 use App\Models\Ticket;
 use App\Models\User;
@@ -19,12 +19,12 @@ test('usuario autenticado puede ver el dashboard', function () {
 
 test('admin ve todos los tickets', function () {
     $admin = User::factory()->administrador()->create();
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
     Ticket::factory()->count(3)->create([
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ]);
@@ -36,23 +36,23 @@ test('admin ve todos los tickets', function () {
     expect($respuesta->original->getData()['page']['props']['estadisticas']['total'])->toBe(3);
 });
 
-test('tecnico solo ve sus tickets asignados', function () {
-    $tecnico = User::factory()->tecnico()->create();
-    $otroTecnico = User::factory()->tecnico()->create();
-    $departamento = Departamento::factory()->create();
+test('auxiliar solo ve sus tickets asignados', function () {
+    $auxiliar = User::factory()->auxiliar()->create();
+    $otroAuxiliar = User::factory()->auxiliar()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
     $datosComunes = [
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ];
 
-    Ticket::factory()->count(2)->create([...$datosComunes, 'tecnico_id' => $tecnico->id]);
-    Ticket::factory()->create([...$datosComunes, 'tecnico_id' => $otroTecnico->id]);
+    Ticket::factory()->count(2)->create([...$datosComunes, 'auxiliar_id' => $auxiliar->id]);
+    Ticket::factory()->create([...$datosComunes, 'auxiliar_id' => $otroAuxiliar->id]);
 
-    $this->actingAs($tecnico);
+    $this->actingAs($auxiliar);
     $respuesta = $this->get(route('dashboard'));
 
     expect($respuesta->original->getData()['page']['props']['estadisticas']['total'])->toBe(2);
@@ -61,12 +61,12 @@ test('tecnico solo ve sus tickets asignados', function () {
 test('solicitante solo ve sus tickets', function () {
     $solicitante = User::factory()->solicitante()->create();
     $otro = User::factory()->solicitante()->create();
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
     $datosComunes = [
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ];
@@ -82,12 +82,12 @@ test('solicitante solo ve sus tickets', function () {
 
 test('dashboard filtra tickets por estado', function () {
     $admin = User::factory()->administrador()->create();
-    $departamento = Departamento::factory()->create();
+    $area = Area::factory()->create();
     $categoria = Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
 
     $datosComunes = [
-        'departamento_id' => $departamento->id,
+        'area_id' => $area->id,
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
     ];

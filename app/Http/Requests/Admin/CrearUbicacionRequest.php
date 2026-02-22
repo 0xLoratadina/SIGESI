@@ -22,7 +22,7 @@ class CrearUbicacionRequest extends FormRequest
             'piso' => ['nullable', 'string', 'max:20'],
             'salon' => ['nullable', 'string', 'max:50'],
             'descripcion' => ['nullable', 'string'],
-            'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
+            'area_id' => ['nullable', 'integer', 'exists:areas,id'],
         ];
     }
 
@@ -35,7 +35,7 @@ class CrearUbicacionRequest extends FormRequest
             'nombre.required' => 'El nombre es obligatorio.',
             'nombre.max' => 'El nombre no puede exceder 150 caracteres.',
             'edificio.required' => 'El edificio es obligatorio.',
-            'departamento_id.exists' => 'El departamento seleccionado no es válido.',
+            'area_id.exists' => 'El área seleccionada no es válida.',
         ];
     }
 }

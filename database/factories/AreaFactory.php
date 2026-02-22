@@ -5,9 +5,9 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Departamento>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Area>
  */
-class DepartamentoFactory extends Factory
+class AreaFactory extends Factory
 {
     /**
      * @return array<string, mixed>
@@ -16,10 +16,8 @@ class DepartamentoFactory extends Factory
     {
         return [
             'nombre' => fake()->unique()->company(),
-            'codigo' => fake()->unique()->lexify('????'),
             'edificio' => fake()->optional()->word(),
-            'telefono' => fake()->optional()->numerify('Ext. ###'),
-            'jefe' => fake()->optional()->name(),
+            'nivel_prioridad' => fake()->numberBetween(1, 5),
             'activo' => true,
         ];
     }

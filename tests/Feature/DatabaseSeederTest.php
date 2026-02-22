@@ -17,7 +17,7 @@ it('crea 6 usuarios de prueba', function () {
 
     expect(User::count())->toBe(6);
     expect(User::where('rol', 'Administrador')->count())->toBe(1);
-    expect(User::where('rol', 'Tecnico')->count())->toBe(2);
+    expect(User::where('rol', 'Auxiliar')->count())->toBe(2);
     expect(User::where('rol', 'Solicitante')->count())->toBe(3);
 });
 

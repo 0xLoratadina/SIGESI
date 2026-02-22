@@ -1,8 +1,9 @@
 <?php
 
+use App\Http\Controllers\Admin\AreaController;
+use App\Http\Controllers\Admin\AuxiliarController;
 use App\Http\Controllers\Admin\CatalogosController;
 use App\Http\Controllers\Admin\CategoriaController;
-use App\Http\Controllers\Admin\DepartamentoController;
 use App\Http\Controllers\Admin\PrioridadController;
 use App\Http\Controllers\Admin\UbicacionController;
 use App\Http\Controllers\Admin\UsuarioController;
@@ -36,9 +37,11 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
 Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')->group(function () {
     Route::get('catalogos', CatalogosController::class)->name('admin.catalogos');
 
-    Route::post('departamentos', [DepartamentoController::class, 'store'])->name('admin.departamentos.store');
-    Route::put('departamentos/{departamento}', [DepartamentoController::class, 'update'])->name('admin.departamentos.update');
-    Route::delete('departamentos/{departamento}', [DepartamentoController::class, 'destroy'])->name('admin.departamentos.destroy');
+    Route::post('areas', [AreaController::class, 'store'])->name('admin.areas.store');
+    Route::put('areas/{area}', [AreaController::class, 'update'])->name('admin.areas.update');
+    Route::delete('areas/{area}', [AreaController::class, 'destroy'])->name('admin.areas.destroy');
+
+    Route::put('auxiliares/{user}', [AuxiliarController::class, 'update'])->name('admin.auxiliares.update');
 
     Route::post('categorias', [CategoriaController::class, 'store'])->name('admin.categorias.store');
     Route::put('categorias/{categoria}', [CategoriaController::class, 'update'])->name('admin.categorias.update');

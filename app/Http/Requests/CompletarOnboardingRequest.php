@@ -20,7 +20,7 @@ class CompletarOnboardingRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'telefono' => ['required', 'string', 'max:20'],
             'cargo' => ['required', 'string', 'max:100'],
-            'departamento_id' => ['required', 'integer', 'exists:departamentos,id'],
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
             'ubicacion_id' => ['nullable', 'integer', 'exists:ubicaciones,id'],
         ];
     }
@@ -34,8 +34,8 @@ class CompletarOnboardingRequest extends FormRequest
             'name.required' => 'El nombre completo es obligatorio.',
             'telefono.required' => 'El teléfono es obligatorio.',
             'cargo.required' => 'El cargo es obligatorio.',
-            'departamento_id.required' => 'El departamento es obligatorio.',
-            'departamento_id.exists' => 'El departamento seleccionado no es válido.',
+            'area_id.required' => 'El área es obligatorio.',
+            'area_id.exists' => 'El área seleccionado no es válido.',
             'ubicacion_id.exists' => 'La ubicación seleccionada no es válida.',
         ];
     }

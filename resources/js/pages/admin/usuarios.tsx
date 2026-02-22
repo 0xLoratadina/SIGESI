@@ -14,30 +14,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { usuarios } from '@/routes/admin';
-import type { BreadcrumbItem, Credenciales, DatosPaginados, SharedData } from '@/types';
+import type { Area, BreadcrumbItem, Credenciales, DatosPaginados, SharedData } from '@/types';
 import type { Rol, User } from '@/types/auth';
 
 type UsuarioAdmin = User & {
-    departamento?: { id: number; nombre: string } | null;
+    area?: { id: number; nombre: string } | null;
 };
 
 type Props = {
     usuarios: DatosPaginados<UsuarioAdmin>;
-    departamentos: { id: number; nombre: string }[];
+    areas: { id: number; nombre: string }[];
     filtroRol: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Usuarios', href: usuarios().url }];
 
-const roles: Rol[] = ['Administrador', 'Tecnico', 'Solicitante'];
+const roles: Rol[] = ['Administrador', 'Auxiliar', 'Solicitante'];
 
 const colorRol: Record<Rol, 'default' | 'secondary' | 'outline'> = {
     Administrador: 'default',
-    Tecnico: 'secondary',
+    Auxiliar: 'secondary',
     Solicitante: 'outline',
 };
 
-export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtroRol }: Props) {
+export default function UsuariosAdmin({ usuarios: paginado, areas, filtroRol }: Props) {
     const { flash } = usePage<SharedData>().props;
     const [abierto, setAbierto] = useState(false);
     const [editando, setEditando] = useState<UsuarioAdmin | null>(null);
@@ -113,7 +113,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
 
     function copiarCredenciales() {
         if (!credenciales) return;
-        const texto = `Credenciales SIGESI\nNombre: ${credenciales.nombre}\nEmail: ${credenciales.email}\nContraseña temporal: ${credenciales.password}\nRol: ${credenciales.rol}`;
+        const texto = `Credenciales SIGESI\nNombre: ${credenciales.nombre}\nEmail: ${credenciales.email}\nContrasena temporal: ${credenciales.password}\nRol: ${credenciales.rol}`;
         navigator.clipboard.writeText(texto);
         setCopiado(true);
         setTimeout(() => setCopiado(false), 2000);
@@ -157,7 +157,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                                                 <TableHead>Nombre</TableHead>
                                                 <TableHead>Email</TableHead>
                                                 <TableHead>Rol</TableHead>
-                                                <TableHead className="hidden md:table-cell">Departamento</TableHead>
+                                                <TableHead className="hidden md:table-cell">Area</TableHead>
                                                 <TableHead>Estado</TableHead>
                                                 <TableHead className="hidden sm:table-cell">Onboarding</TableHead>
                                                 <TableHead className="w-[100px]">Acciones</TableHead>
@@ -172,7 +172,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                                                         <Badge variant={colorRol[usuario.rol]}>{usuario.rol}</Badge>
                                                     </TableCell>
                                                     <TableCell className="hidden md:table-cell">
-                                                        {usuario.departamento?.nombre ?? '—'}
+                                                        {usuario.area?.nombre ?? '--'}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant={usuario.activo ? 'default' : 'secondary'}>
@@ -206,7 +206,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                                 {paginado.last_page > 1 && (
                                     <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
                                         <span>
-                                            Mostrando {paginado.from}–{paginado.to} de {paginado.total}
+                                            Mostrando {paginado.from}--{paginado.to} de {paginado.total}
                                         </span>
                                         <div className="flex gap-1">
                                             {paginado.links.map((enlace, i) => (
@@ -233,7 +233,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                         <DialogHeader>
                             <DialogTitle>Nuevo Usuario</DialogTitle>
                             <DialogDescription>
-                                El sistema generará una contraseña temporal automáticamente.
+                                El sistema generara una contrasena temporal automaticamente.
                             </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={enviarCrear} className="grid gap-4 py-2">
@@ -331,13 +331,13 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                                 <InputError message={formEditar.errors.rol} />
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-password">Nueva contraseña</Label>
+                                <Label htmlFor="edit-password">Nueva contrasena</Label>
                                 <Input
                                     id="edit-password"
                                     type="password"
                                     value={formEditar.data.password_temporal}
                                     onChange={(e) => formEditar.setData('password_temporal', e.target.value)}
-                                    placeholder="Dejar vacío para mantener"
+                                    placeholder="Dejar vacio para mantener"
                                     minLength={8}
                                 />
                                 <InputError message={formEditar.errors.password_temporal} />
@@ -360,7 +360,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                         <DialogHeader>
                             <DialogTitle>Usuario creado</DialogTitle>
                             <DialogDescription>
-                                Envía estas credenciales al usuario para que pueda iniciar sesión.
+                                Envia estas credenciales al usuario para que pueda iniciar sesion.
                             </DialogDescription>
                         </DialogHeader>
                         {credenciales && (
@@ -374,7 +374,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                                     <span className="font-medium">{credenciales.email}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Contraseña</span>
+                                    <span className="text-muted-foreground">Contrasena</span>
                                     <span className="font-mono font-medium">{credenciales.password}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
@@ -398,7 +398,7 @@ export default function UsuariosAdmin({ usuarios: paginado, departamentos, filtr
                     onCerrar={() => setEliminando(null)}
                     onConfirmar={confirmarEliminar}
                     titulo="Eliminar usuario"
-                    descripcion={`¿Estás seguro de que deseas eliminar o desactivar al usuario "${eliminando?.name}"? Si el usuario tiene tickets asociados, será desactivado en lugar de eliminado.`}
+                    descripcion={`¿Estas seguro de que deseas eliminar o desactivar al usuario "${eliminando?.name}"? Si el usuario tiene tickets asociados, sera desactivado en lugar de eliminado.`}
                     textoConfirmar="Eliminar"
                     variante="destructiva"
                 />

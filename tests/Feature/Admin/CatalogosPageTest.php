@@ -1,9 +1,6 @@
 <?php
 
-use App\Models\Categoria;
-use App\Models\Departamento;
-use App\Models\Prioridad;
-use App\Models\Ubicacion;
+use App\Models\Area;
 use App\Models\User;
 
 it('admin puede ver la pagina de catalogos', function () {
@@ -23,28 +20,23 @@ it('solicitante recibe 403', function () {
         ->assertForbidden();
 });
 
-it('tecnico recibe 403', function () {
-    $tecnico = User::factory()->tecnico()->create();
+it('auxiliar recibe 403', function () {
+    $auxiliar = User::factory()->auxiliar()->create();
 
-    $this->actingAs($tecnico)
+    $this->actingAs($auxiliar)
         ->get(route('admin.catalogos'))
         ->assertForbidden();
 });
 
-it('pagina incluye todos los catalogos', function () {
+it('pagina incluye areas y auxiliares', function () {
     $admin = User::factory()->administrador()->create();
-    Departamento::factory()->create();
-    Categoria::factory()->create();
-    Prioridad::factory()->create();
-    Ubicacion::factory()->create();
+    Area::factory()->create();
 
     $this->actingAs($admin)
         ->get(route('admin.catalogos'))
         ->assertInertia(fn ($pagina) => $pagina
             ->component('admin/catalogos')
-            ->has('departamentos')
-            ->has('categorias')
-            ->has('prioridades')
-            ->has('ubicaciones')
+            ->has('areas')
+            ->has('auxiliares')
         );
 });

@@ -5,6 +5,6 @@ namespace App\Enums;
 enum Rol: string
 {
     case Administrador = 'Administrador';
-    case Tecnico = 'Tecnico';
+    case Auxiliar = 'Auxiliar';
     case Solicitante = 'Solicitante';
 }

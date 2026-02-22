@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int|null $area_id
+ */
 class Ubicacion extends Model
 {
     use HasFactory;
@@ -19,7 +22,7 @@ class Ubicacion extends Model
         'piso',
         'salon',
         'descripcion',
-        'departamento_id',
+        'area_id',
         'activo',
     ];
 
@@ -32,9 +35,9 @@ class Ubicacion extends Model
 
     // ── Relaciones ──────────────────────────────────────────
 
-    public function departamento(): BelongsTo
+    public function area(): BelongsTo
     {
-        return $this->belongsTo(Departamento::class);
+        return $this->belongsTo(Area::class);
     }
 
     public function tickets(): HasMany

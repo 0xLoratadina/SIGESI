@@ -17,19 +17,19 @@ class UserSeeder extends Seeder
             'cargo' => 'Administrador de Soporte',
         ]);
 
-        // Tecnicos
-        User::factory()->tecnico()->create([
+        // Auxiliars
+        User::factory()->auxiliar()->create([
             'name' => 'Carlos Martinez Lopez',
             'email' => 'carlos.martinez@sigesi.com',
             'num_empleado' => 'TEC001',
-            'cargo' => 'Tecnico en Soporte',
+            'cargo' => 'Auxiliar en Soporte',
         ]);
 
-        User::factory()->tecnico()->create([
+        User::factory()->auxiliar()->create([
             'name' => 'Ana Garcia Ruiz',
             'email' => 'ana.garcia@sigesi.com',
             'num_empleado' => 'TEC002',
-            'cargo' => 'Tecnico en Redes',
+            'cargo' => 'Auxiliar en Redes',
         ]);
 
         // Solicitantes

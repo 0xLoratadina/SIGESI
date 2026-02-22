@@ -19,10 +19,10 @@ it('solicitante recibe 403', function () {
         ->assertForbidden();
 });
 
-it('tecnico recibe 403', function () {
-    $tecnico = User::factory()->tecnico()->create();
+it('auxiliar recibe 403', function () {
+    $auxiliar = User::factory()->auxiliar()->create();
 
-    $this->actingAs($tecnico)
+    $this->actingAs($auxiliar)
         ->get(route('admin.whatsapp'))
         ->assertForbidden();
 });

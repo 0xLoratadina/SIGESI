@@ -25,7 +25,7 @@ class ArticuloFactory extends Factory
             'slug' => Str::slug($titulo),
             'contenido' => fake()->paragraphs(3, true),
             'categoria_id' => Categoria::factory(),
-            'autor_id' => User::factory()->tecnico(),
+            'autor_id' => User::factory()->auxiliar(),
             'estado' => EstadoArticulo::Borrador,
             'vistas' => 0,
             'fecha_publicacion' => null,

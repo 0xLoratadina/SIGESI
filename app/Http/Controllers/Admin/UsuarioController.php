@@ -6,7 +6,7 @@ use App\Enums\Rol;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ActualizarUsuarioRequest;
 use App\Http\Requests\Admin\CrearUsuarioRequest;
-use App\Models\Departamento;
+use App\Models\Area;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +19,7 @@ class UsuarioController extends Controller
 {
     public function index(Request $request): Response
     {
-        $consulta = User::query()->with('departamento:id,nombre');
+        $consulta = User::query()->with('area:id,nombre');
 
         if ($request->filled('rol')) {
             $consulta->where('rol', $request->rol);
@@ -30,7 +30,7 @@ class UsuarioController extends Controller
                 ->orderByDesc('created_at')
                 ->paginate(15)
                 ->withQueryString(),
-            'departamentos' => Departamento::query()
+            'areas' => Area::query()
                 ->where('activo', true)
                 ->select('id', 'nombre')
                 ->orderBy('nombre')
@@ -41,6 +41,7 @@ class UsuarioController extends Controller
 
     public function store(CrearUsuarioRequest $request): RedirectResponse
     {
+        $esAuxiliar = $request->rol === Rol::Auxiliar->value;
         $esSolicitante = $request->rol === Rol::Solicitante->value;
         $passwordTemporal = Str::random(12);
 
@@ -48,7 +49,7 @@ class UsuarioController extends Controller
             ...$request->validated(),
             'password' => Hash::make($passwordTemporal),
             'debe_cambiar_password' => $esSolicitante,
-            'onboarding_completado' => ! $esSolicitante,
+            'onboarding_completado' => $esAuxiliar || ! $esSolicitante,
         ]);
 
         $usuario->forceFill(['email_verified_at' => now()])->save();

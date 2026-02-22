@@ -28,7 +28,7 @@ class CrearTicketRequest extends FormRequest
         ];
 
         if (! $esSolicitante) {
-            $reglas['departamento_id'] = ['required', 'integer', 'exists:departamentos,id'];
+            $reglas['area_id'] = ['required', 'integer', 'exists:areas,id'];
             $reglas['categoria_id'] = ['required', 'integer', 'exists:categorias,id'];
             $reglas['prioridad_id'] = ['required', 'integer', 'exists:prioridades,id'];
             $reglas['ubicacion_id'] = ['nullable', 'integer', 'exists:ubicaciones,id'];
@@ -52,8 +52,8 @@ class CrearTicketRequest extends FormRequest
             'titulo.max' => 'El título no puede exceder 255 caracteres.',
             'descripcion.required' => 'La descripción es obligatoria.',
             'descripcion.min' => 'La descripción debe tener al menos 10 caracteres.',
-            'departamento_id.required' => 'El departamento es obligatorio.',
-            'departamento_id.exists' => 'El departamento seleccionado no es válido.',
+            'area_id.required' => 'El área es obligatoria.',
+            'area_id.exists' => 'El área seleccionada no es válida.',
             'categoria_id.required' => 'La categoría es obligatoria.',
             'categoria_id.exists' => 'La categoría seleccionada no es válida.',
             'prioridad_id.required' => 'La prioridad es obligatoria.',

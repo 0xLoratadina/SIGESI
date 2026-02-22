@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { store } from '@/actions/App/Http/Controllers/Admin/DepartamentoController';
+import { store } from '@/actions/App/Http/Controllers/Admin/AreaController';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ type Props = {
     onCreado: () => void;
 };
 
-export default function ModalCrearDepartamentoRapido({ onCreado }: Props) {
+export default function ModalCrearAreaRapida({ onCreado }: Props) {
     const [abierto, setAbierto] = useState(false);
     const [procesando, setProcesando] = useState(false);
     const [errores, setErrores] = useState<Record<string, string>>({});
@@ -38,38 +38,24 @@ export default function ModalCrearDepartamentoRapido({ onCreado }: Props) {
     return (
         <Dialog open={abierto} onOpenChange={setAbierto}>
             <DialogTrigger asChild>
-                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear departamento">
+                <Button type="button" size="icon" variant="ghost" className="h-6 w-6" title="Crear area">
                     <Plus className="h-3.5 w-3.5" />
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[400px]" onClick={(e) => e.stopPropagation()}>
                 <DialogHeader>
-                    <DialogTitle>Nuevo Departamento</DialogTitle>
+                    <DialogTitle>Nueva Area</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={enviar} className="grid gap-4 py-2">
                     <div className="grid gap-2">
-                        <Label htmlFor="depto-nombre">Nombre *</Label>
-                        <Input id="depto-nombre" name="nombre" required />
+                        <Label htmlFor="area-nombre">Nombre *</Label>
+                        <Input id="area-nombre" name="nombre" required />
                         <InputError message={errores.nombre} />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="depto-codigo">Código *</Label>
-                        <Input id="depto-codigo" name="codigo" maxLength={10} required />
-                        <InputError message={errores.codigo} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="depto-edificio">Edificio</Label>
-                            <Input id="depto-edificio" name="edificio" />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="depto-telefono">Teléfono</Label>
-                            <Input id="depto-telefono" name="telefono" />
-                        </div>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="depto-jefe">Jefe / Responsable</Label>
-                        <Input id="depto-jefe" name="jefe" />
+                        <Label htmlFor="area-edificio">Edificio</Label>
+                        <Input id="area-edificio" name="edificio" />
+                        <InputError message={errores.edificio} />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => setAbierto(false)}>Cancelar</Button>

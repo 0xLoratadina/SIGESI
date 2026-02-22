@@ -31,7 +31,7 @@ const elementosAdmin: NavItem[] = [
         icon: MessageCircle,
     },
     {
-        title: 'Catálogos',
+        title: 'Configuracion',
         href: catalogos(),
         icon: Settings2,
     },
