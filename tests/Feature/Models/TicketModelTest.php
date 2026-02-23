@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Models\Actividad;
 use App\Models\Area;
@@ -48,14 +47,12 @@ it('tiene comentarios y actividades', function () {
         ->and($ticket->actividades)->toHaveCount(1);
 });
 
-it('castea canal y estado como enums', function () {
+it('castea estado como enum', function () {
     $ticket = Ticket::factory()->create([
-        'canal' => Canal::WhatsApp,
         'estado' => EstadoTicket::EnProgreso,
     ]);
 
-    expect($ticket->canal)->toBe(Canal::WhatsApp)
-        ->and($ticket->estado)->toBe(EstadoTicket::EnProgreso);
+    expect($ticket->estado)->toBe(EstadoTicket::EnProgreso);
 });
 
 it('crea ticket con factory state asignado', function () {

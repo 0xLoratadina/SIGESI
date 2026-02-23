@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +22,6 @@ class Ticket extends Model
         'categoria_id',
         'prioridad_id',
         'ubicacion_id',
-        'canal',
         'estado',
         'auxiliar_id',
         'asignado_por',
@@ -59,7 +57,6 @@ class Ticket extends Model
     protected function casts(): array
     {
         return [
-            'canal' => Canal::class,
             'estado' => EstadoTicket::class,
             'fecha_asignacion' => 'datetime',
             'fecha_resolucion' => 'datetime',

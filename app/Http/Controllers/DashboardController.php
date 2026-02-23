@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Enums\Rol;
 use App\Models\Area;
@@ -51,9 +50,6 @@ class DashboardController extends Controller
             $consulta->where('estado', $filtroEstado);
         }
 
-        $porPagina = (int) $request->query('por_pagina', 15);
-        $porPagina = in_array($porPagina, [10, 15]) ? $porPagina : 15;
-
         $tickets = $consulta
             ->with([
                 'solicitante:id,name',
@@ -62,8 +58,7 @@ class DashboardController extends Controller
                 'categoria:id,nombre',
             ])
             ->latest()
-            ->paginate($porPagina)
-            ->withQueryString();
+            ->get();
 
         return Inertia::render('dashboard', [
             'estadisticas' => $estadisticas,
@@ -75,9 +70,11 @@ class DashboardController extends Controller
                 'categorias' => Categoria::query()->where('activo', true)->select('id', 'nombre', 'padre_id')->orderBy('nombre')->get(),
                 'prioridades' => Prioridad::query()->where('activo', true)->select('id', 'nombre', 'color', 'nivel')->orderBy('nivel')->get(),
                 'ubicaciones' => Ubicacion::query()->where('activo', true)->select('id', 'nombre', 'edificio', 'piso', 'area_id')->orderBy('nombre')->get(),
-                'canales' => array_column(Canal::cases(), 'value'),
+                'auxiliares' => $usuario->esAdmin()
+                    ? User::query()->where('activo', true)->where('rol', Rol::Auxiliar)->select('id', 'name')->orderBy('name')->get()
+                    : [],
                 'usuarios' => $usuario->esAdmin()
-                    ? User::query()->where('activo', true)->select('id', 'name', 'email')->orderBy('name')->get()
+                    ? User::query()->where('activo', true)->select('id', 'name', 'email', 'area_id')->orderBy('name')->get()
                     : [],
             ]),
         ]);

@@ -19,7 +19,6 @@ return new class extends Migration
             $table->foreignId('categoria_id')->constrained('categorias')->restrictOnDelete();
             $table->foreignId('prioridad_id')->constrained('prioridades')->restrictOnDelete();
             $table->foreignId('ubicacion_id')->nullable()->constrained('ubicaciones')->nullOnDelete();
-            $table->string('canal')->default('Web');
             $table->string('estado')->default('Abierto');
             $table->foreignId('tecnico_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('asignado_por')->nullable()->constrained('users')->nullOnDelete();
@@ -33,7 +32,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index('estado');
-            $table->index('canal');
             $table->index('fecha_limite');
         });
     }

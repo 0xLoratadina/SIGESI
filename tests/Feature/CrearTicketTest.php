@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Models\Adjunto;
 use App\Models\Area;
@@ -140,13 +139,11 @@ test('admin puede crear ticket para otro usuario', function () {
         'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
         'solicitante_id' => $solicitante->id,
-        'canal' => Canal::Presencial->value,
     ])->assertRedirect(route('dashboard'));
 
     expect(Ticket::first())
         ->solicitante_id->toBe($solicitante->id)
-        ->creador_id->toBe($admin->id)
-        ->canal->toBe(Canal::Presencial);
+        ->creador_id->toBe($admin->id);
 });
 
 test('solicitante no puede asignar otro usuario como solicitante', function () {
@@ -215,25 +212,6 @@ test('ticket se puede crear con ubicacion', function () {
     ])->assertRedirect(route('dashboard'));
 
     expect(Ticket::first())->ubicacion_id->toBe($ubicacion->id);
-});
-
-test('canal por defecto es Web si no se especifica', function () {
-    $usuario = User::factory()->auxiliar()->create();
-    $area = Area::factory()->create();
-    $categoria = Categoria::factory()->create();
-    $prioridad = Prioridad::factory()->create();
-
-    $this->actingAs($usuario);
-
-    $this->post(route('tickets.store'), [
-        'titulo' => 'Problema de red',
-        'descripcion' => 'La red inalambrica del edificio principal esta muy lenta',
-        'area_id' => $area->id,
-        'categoria_id' => $categoria->id,
-        'prioridad_id' => $prioridad->id,
-    ])->assertRedirect(route('dashboard'));
-
-    expect(Ticket::first())->canal->toBe(Canal::Web);
 });
 
 test('fecha limite se calcula automaticamente de la prioridad', function () {

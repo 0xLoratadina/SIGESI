@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Enums\Canal;
 use App\Enums\EstadoTicket;
 use App\Models\Area;
 use App\Models\Categoria;
@@ -29,7 +28,6 @@ class TicketFactory extends Factory
             'categoria_id' => Categoria::factory(),
             'prioridad_id' => Prioridad::factory(),
             'ubicacion_id' => null,
-            'canal' => Canal::Web,
             'estado' => EstadoTicket::Abierto,
             'auxiliar_id' => null,
             'asignado_por' => null,
@@ -90,13 +88,6 @@ class TicketFactory extends Factory
     {
         return $this->state(fn (array $atributos) => [
             'estado' => EstadoTicket::Cancelado,
-        ]);
-    }
-
-    public function porCanal(Canal $canal): static
-    {
-        return $this->state(fn (array $atributos) => [
-            'canal' => $canal,
         ]);
     }
 }

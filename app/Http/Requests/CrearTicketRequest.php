@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Enums\Canal;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class CrearTicketRequest extends FormRequest
 {
@@ -32,7 +30,6 @@ class CrearTicketRequest extends FormRequest
             $reglas['categoria_id'] = ['required', 'integer', 'exists:categorias,id'];
             $reglas['prioridad_id'] = ['required', 'integer', 'exists:prioridades,id'];
             $reglas['ubicacion_id'] = ['nullable', 'integer', 'exists:ubicaciones,id'];
-            $reglas['canal'] = ['nullable', Rule::enum(Canal::class)];
         }
 
         if ($this->user()->esAdmin()) {

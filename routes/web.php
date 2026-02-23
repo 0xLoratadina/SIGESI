@@ -31,6 +31,8 @@ Route::middleware(['auth'])->prefix('onboarding')->group(function () {
 
 Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
+    Route::put('tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::post('tickets', [TicketController::class, 'store'])->name('tickets.store');
 });
 

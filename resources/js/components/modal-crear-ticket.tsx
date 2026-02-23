@@ -50,7 +50,6 @@ export default function ModalCrearTicket({ catalogos }: Props) {
         area_id: '',
         categoria_id: '',
         prioridad_id: '',
-        canal: 'Web',
         ubicacion_id: '',
         solicitante_id: '',
         adjuntos: [] as File[],
@@ -77,7 +76,6 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                 formData.append('categoria_id', data.categoria_id);
             if (data.prioridad_id)
                 formData.append('prioridad_id', data.prioridad_id);
-            if (data.canal) formData.append('canal', data.canal);
             if (data.ubicacion_id)
                 formData.append('ubicacion_id', data.ubicacion_id);
         }
@@ -361,77 +359,56 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <Label>Canal</Label>
-                                        <Select
-                                            value={data.canal}
-                                            onValueChange={(v) =>
-                                                setData('canal', v)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {catalogos.canales.map(
-                                                    (canal) => (
-                                                        <SelectItem
-                                                            key={canal}
-                                                            value={canal}
-                                                        >
-                                                            {canal}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                        <InputError message={errors.canal} />
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label>
-                                            Ubicacion{' '}
-                                            <span className="text-muted-foreground">
-                                                (opcional)
-                                            </span>
-                                        </Label>
-                                        {esAdmin && (
-                                            <ModalCrearUbicacionRapida
-                                                areas={catalogos.areas}
-                                                onCreado={recargarCatalogos}
-                                            />
+                                        <div className="flex items-center justify-between">
+                                            <Label>
+                                                Ubicacion{' '}
+                                                <span className="text-muted-foreground">
+                                                    (opcional)
+                                                </span>
+                                            </Label>
+                                            {esAdmin && (
+                                                <ModalCrearUbicacionRapida
+                                                    areas={catalogos.areas}
+                                                    onCreado={recargarCatalogos}
+                                                />
+                                            )}
+                                        </div>
+                                        {catalogos.ubicaciones.length > 0 && (
+                                            <Select
+                                                value={data.ubicacion_id}
+                                                onValueChange={(v) =>
+                                                    setData('ubicacion_id', v)
+                                                }
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Sin ubicacion" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {catalogos.ubicaciones.map(
+                                                        (ubicacion) => (
+                                                            <SelectItem
+                                                                key={
+                                                                    ubicacion.id
+                                                                }
+                                                                value={String(
+                                                                    ubicacion.id,
+                                                                )}
+                                                            >
+                                                                {
+                                                                    ubicacion.nombre
+                                                                }
+                                                                {ubicacion.edificio &&
+                                                                    ` - ${ubicacion.edificio}`}
+                                                            </SelectItem>
+                                                        ),
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
                                         )}
+                                        <InputError
+                                            message={errors.ubicacion_id}
+                                        />
                                     </div>
-                                    {catalogos.ubicaciones.length > 0 && (
-                                        <Select
-                                            value={data.ubicacion_id}
-                                            onValueChange={(v) =>
-                                                setData('ubicacion_id', v)
-                                            }
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Sin ubicacion" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {catalogos.ubicaciones.map(
-                                                    (ubicacion) => (
-                                                        <SelectItem
-                                                            key={ubicacion.id}
-                                                            value={String(
-                                                                ubicacion.id,
-                                                            )}
-                                                        >
-                                                            {ubicacion.nombre}
-                                                            {ubicacion.edificio &&
-                                                                ` - ${ubicacion.edificio}`}
-                                                        </SelectItem>
-                                                    ),
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                    <InputError message={errors.ubicacion_id} />
                                 </div>
 
                                 {esAdmin && catalogos.usuarios.length > 0 && (
@@ -439,9 +416,24 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                         <Label>Solicitante</Label>
                                         <Select
                                             value={data.solicitante_id}
-                                            onValueChange={(v) =>
-                                                setData('solicitante_id', v)
-                                            }
+                                            onValueChange={(v) => {
+                                                const usuario =
+                                                    catalogos.usuarios.find(
+                                                        (u) =>
+                                                            String(u.id) === v,
+                                                    );
+                                                setData((prev) => ({
+                                                    ...prev,
+                                                    solicitante_id: v,
+                                                    ...(usuario?.area_id
+                                                        ? {
+                                                              area_id: String(
+                                                                  usuario.area_id,
+                                                              ),
+                                                          }
+                                                        : {}),
+                                                }));
+                                            }}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Seleccionar usuario..." />

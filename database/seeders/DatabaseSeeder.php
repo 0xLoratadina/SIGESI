@@ -11,7 +11,11 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ConfiguracionSeeder::class,
             AreaSeeder::class,
+            CategoriaSeeder::class,
+            PrioridadSeeder::class,
+            UbicacionSeeder::class,
             UserSeeder::class,
+            TicketSeeder::class,
         ]);
     }
 }

@@ -8,7 +8,6 @@ export type EstadoTicket =
     | 'Resuelto'
     | 'Cerrado'
     | 'Cancelado';
-export type Canal = 'Web' | 'WhatsApp' | 'Telefono' | 'Correo' | 'Presencial';
 export type Dia =
     | 'Lunes'
     | 'Martes'
@@ -86,8 +85,13 @@ export type CatalogosDashboard = {
         Ubicacion,
         'id' | 'nombre' | 'edificio' | 'piso' | 'area_id'
     >[];
-    canales: Canal[];
-    usuarios: { id: number; name: string; email: string }[];
+    auxiliares: { id: number; name: string }[];
+    usuarios: {
+        id: number;
+        name: string;
+        email: string;
+        area_id: number | null;
+    }[];
 };
 
 export type CategoriaConPadre = Categoria & {
@@ -109,7 +113,6 @@ export type Ticket = {
     categoria_id: number;
     prioridad_id: number;
     ubicacion_id: number | null;
-    canal: Canal;
     estado: EstadoTicket;
     auxiliar_id: number | null;
     asignado_por: number | null;
@@ -127,6 +130,24 @@ export type Ticket = {
     auxiliar?: Pick<User, 'id' | 'name'> | null;
     prioridad?: Pick<Prioridad, 'id' | 'nombre' | 'color'>;
     categoria?: Pick<Categoria, 'id' | 'nombre'>;
+};
+
+export type Adjunto = {
+    id: number;
+    ticket_id: number;
+    nombre: string;
+    tamano: number;
+    tipo_mime: string;
+};
+
+export type TicketDetalle = Ticket & {
+    solicitante?: Pick<User, 'id' | 'name' | 'email'>;
+    auxiliar?: Pick<User, 'id' | 'name' | 'email'> | null;
+    area?: Pick<Area, 'id' | 'nombre'>;
+    categoria?: Pick<Categoria, 'id' | 'nombre'>;
+    prioridad?: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel'>;
+    ubicacion?: Pick<Ubicacion, 'id' | 'nombre' | 'edificio' | 'piso'> | null;
+    adjuntos?: Adjunto[];
 };
 
 export type Estadisticas = {

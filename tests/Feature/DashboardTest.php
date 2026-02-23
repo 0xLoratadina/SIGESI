@@ -98,6 +98,6 @@ test('dashboard filtra tickets por estado', function () {
     $this->actingAs($admin);
     $respuesta = $this->get(route('dashboard', ['estado' => 'Abierto']));
 
-    $tickets = $respuesta->original->getData()['page']['props']['tickets']['data'];
+    $tickets = $respuesta->original->getData()['page']['props']['tickets'];
     expect(count($tickets))->toBe(2);
 });
