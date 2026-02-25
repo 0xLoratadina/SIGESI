@@ -514,7 +514,7 @@ export default function ChatList({
             </div>
 
             {/* Filtros por estado */}
-            <div className="scrollbar-thin flex gap-1 overflow-x-auto p-3">
+            <div className="flex gap-1 overflow-x-auto p-3">
                 {filtros.map((filtro) => (
                     <button
                         key={filtro.valor}
@@ -531,7 +531,7 @@ export default function ChatList({
             </div>
 
             {/* Lista de chats */}
-            <div className="scrollbar-thin flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
                 {chatsFiltrados.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                         <p className="text-sm">No se encontraron chats</p>

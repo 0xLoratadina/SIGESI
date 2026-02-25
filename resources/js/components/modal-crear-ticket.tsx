@@ -1,12 +1,8 @@
-import { router, useForm, usePage } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { store } from '@/actions/App/Http/Controllers/TicketController';
 import InputError from '@/components/input-error';
-import ModalCrearAreaRapida from '@/components/modal-crear-area-rapida';
-import ModalCrearCategoriaRapida from '@/components/modal-crear-categoria-rapida';
-import ModalCrearPrioridadRapida from '@/components/modal-crear-prioridad-rapida';
-import ModalCrearUbicacionRapida from '@/components/modal-crear-ubicacion-rapida';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -44,60 +40,61 @@ export default function ModalCrearTicket({ catalogos }: Props) {
     const esAdmin = auth.user.rol === 'Administrador';
     const esSolicitante = auth.user.rol === 'Solicitante';
 
-    const { data, setData, processing, errors, reset, progress } = useForm({
+    const prioridadMedia = catalogos?.prioridades.find((p) => p.nivel === 3);
+
+    const { data, setData, post, processing, errors, reset, progress, transform } = useForm({
         titulo: '',
         descripcion: '',
         area_id: '',
         categoria_id: '',
-        prioridad_id: '',
-        ubicacion_id: '',
+        prioridad_id: prioridadMedia ? String(prioridadMedia.id) : '',
         solicitante_id: '',
-        adjuntos: [] as File[],
     });
+
+    useEffect(() => {
+        if (abierto && prioridadMedia && !data.prioridad_id) {
+            setData('prioridad_id', String(prioridadMedia.id));
+        }
+    }, [abierto, prioridadMedia]);
 
     const categoriasPadre =
         catalogos?.categorias.filter((c) => !c.padre_id) ?? [];
     const categoriasHijas =
         catalogos?.categorias.filter((c) => c.padre_id) ?? [];
 
-    function recargarCatalogos() {
-        router.reload({ only: ['catalogos'] });
-    }
-
     function enviarFormulario(e: FormEvent) {
         e.preventDefault();
-        const formData = new FormData();
-        formData.append('titulo', data.titulo);
-        formData.append('descripcion', data.descripcion);
 
-        if (!esSolicitante) {
-            if (data.area_id) formData.append('area_id', data.area_id);
-            if (data.categoria_id)
-                formData.append('categoria_id', data.categoria_id);
-            if (data.prioridad_id)
-                formData.append('prioridad_id', data.prioridad_id);
-            if (data.ubicacion_id)
-                formData.append('ubicacion_id', data.ubicacion_id);
-        }
+        transform((formData) => {
+            const payload: Record<string, unknown> = {
+                titulo: formData.titulo,
+                descripcion: formData.descripcion,
+            };
 
-        if (esAdmin && data.solicitante_id) {
-            formData.append('solicitante_id', data.solicitante_id);
-        }
+            if (!esSolicitante) {
+                if (formData.area_id) payload.area_id = formData.area_id;
+                if (formData.categoria_id) payload.categoria_id = formData.categoria_id;
+                if (formData.prioridad_id) payload.prioridad_id = formData.prioridad_id;
+            }
 
-        adjuntos.forEach((archivo, i) => {
-            formData.append(`adjuntos[${i}]`, archivo);
+            if (esAdmin && formData.solicitante_id) {
+                payload.solicitante_id = formData.solicitante_id;
+            }
+
+            if (adjuntos.length > 0) {
+                payload.adjuntos = adjuntos;
+            }
+
+            return payload;
         });
 
-        router.post(store.url(), formData, {
-            preserveScroll: true,
+        post(store.url(), {
             forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => {
                 setAbierto(false);
                 setAdjuntos([]);
                 reset();
-            },
-            onError: () => {
-                // errors are automatically handled by Inertia
             },
         });
     }
@@ -133,6 +130,50 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                     </div>
                 ) : (
                     <form onSubmit={enviarFormulario} className="space-y-4">
+                        {/* Solicitante: solo admin, primero para auto-llenar área */}
+                        {esAdmin && catalogos && catalogos.usuarios.length > 0 && (
+                            <div className="grid gap-2">
+                                <Label>Solicitante</Label>
+                                <Select
+                                    value={data.solicitante_id}
+                                    onValueChange={(v) => {
+                                        const usuario =
+                                            catalogos.usuarios.find(
+                                                (u) => String(u.id) === v,
+                                            );
+                                        setData((prev) => ({
+                                            ...prev,
+                                            solicitante_id: v,
+                                            ...(usuario?.area_id
+                                                ? {
+                                                      area_id: String(
+                                                          usuario.area_id,
+                                                      ),
+                                                  }
+                                                : {}),
+                                        }));
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Seleccionar usuario..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {catalogos.usuarios.map(
+                                            (usuario) => (
+                                                <SelectItem
+                                                    key={usuario.id}
+                                                    value={String(usuario.id)}
+                                                >
+                                                    {usuario.name} ({usuario.email})
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <InputError message={errors.solicitante_id} />
+                            </div>
+                        )}
+
                         <div className="grid gap-2">
                             <Label htmlFor="titulo">Titulo</Label>
                             <Input
@@ -168,14 +209,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                             <>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label>Area</Label>
-                                            {esAdmin && (
-                                                <ModalCrearAreaRapida
-                                                    onCreado={recargarCatalogos}
-                                                />
-                                            )}
-                                        </div>
+                                        <Label>Area</Label>
                                         {catalogos.areas.length === 0 ? (
                                             <p className="text-sm text-muted-foreground">
                                                 No hay areas.
@@ -195,9 +229,7 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                                         (area) => (
                                                             <SelectItem
                                                                 key={area.id}
-                                                                value={String(
-                                                                    area.id,
-                                                                )}
+                                                                value={String(area.id)}
                                                             >
                                                                 {area.nombre}
                                                             </SelectItem>
@@ -210,17 +242,12 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                     </div>
 
                                     <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label>Categoria</Label>
-                                            {esAdmin && (
-                                                <ModalCrearCategoriaRapida
-                                                    categoriasPadre={
-                                                        catalogos.categorias
-                                                    }
-                                                    onCreado={recargarCatalogos}
-                                                />
-                                            )}
-                                        </div>
+                                        <Label>
+                                            Categoria{' '}
+                                            <span className="text-muted-foreground font-normal">
+                                                (opcional)
+                                            </span>
+                                        </Label>
                                         {catalogos.categorias.length === 0 ? (
                                             <p className="text-sm text-muted-foreground">
                                                 No hay categorias.
@@ -247,46 +274,28 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                                             return hijas.length >
                                                                 0 ? (
                                                                 <SelectGroup
-                                                                    key={
-                                                                        padre.id
-                                                                    }
+                                                                    key={padre.id}
                                                                 >
                                                                     <SelectLabel>
-                                                                        {
-                                                                            padre.nombre
-                                                                        }
+                                                                        {padre.nombre}
                                                                     </SelectLabel>
                                                                     {hijas.map(
-                                                                        (
-                                                                            hija,
-                                                                        ) => (
+                                                                        (hija) => (
                                                                             <SelectItem
-                                                                                key={
-                                                                                    hija.id
-                                                                                }
-                                                                                value={String(
-                                                                                    hija.id,
-                                                                                )}
+                                                                                key={hija.id}
+                                                                                value={String(hija.id)}
                                                                             >
-                                                                                {
-                                                                                    hija.nombre
-                                                                                }
+                                                                                {hija.nombre}
                                                                             </SelectItem>
                                                                         ),
                                                                     )}
                                                                 </SelectGroup>
                                                             ) : (
                                                                 <SelectItem
-                                                                    key={
-                                                                        padre.id
-                                                                    }
-                                                                    value={String(
-                                                                        padre.id,
-                                                                    )}
+                                                                    key={padre.id}
+                                                                    value={String(padre.id)}
                                                                 >
-                                                                    {
-                                                                        padre.nombre
-                                                                    }
+                                                                    {padre.nombre}
                                                                 </SelectItem>
                                                             );
                                                         },
@@ -300,165 +309,57 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label>Prioridad</Label>
-                                            {esAdmin && (
-                                                <ModalCrearPrioridadRapida
-                                                    onCreado={recargarCatalogos}
-                                                />
-                                            )}
-                                        </div>
-                                        {catalogos.prioridades.length === 0 ? (
-                                            <p className="text-sm text-muted-foreground">
-                                                No hay prioridades.
-                                            </p>
-                                        ) : (
-                                            <Select
-                                                value={data.prioridad_id}
-                                                onValueChange={(v) =>
-                                                    setData('prioridad_id', v)
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Seleccionar..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {catalogos.prioridades.map(
-                                                        (prioridad) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    prioridad.id
-                                                                }
-                                                                value={String(
-                                                                    prioridad.id,
-                                                                )}
-                                                            >
-                                                                <span className="flex items-center gap-2">
-                                                                    <span
-                                                                        className="inline-block size-2 rounded-full"
-                                                                        style={{
-                                                                            backgroundColor:
-                                                                                prioridad.color,
-                                                                        }}
-                                                                    />
-                                                                    {
-                                                                        prioridad.nombre
-                                                                    }
-                                                                </span>
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                        <InputError
-                                            message={errors.prioridad_id}
-                                        />
-                                    </div>
-
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label>
-                                                Ubicacion{' '}
-                                                <span className="text-muted-foreground">
-                                                    (opcional)
-                                                </span>
-                                            </Label>
-                                            {esAdmin && (
-                                                <ModalCrearUbicacionRapida
-                                                    areas={catalogos.areas}
-                                                    onCreado={recargarCatalogos}
-                                                />
-                                            )}
-                                        </div>
-                                        {catalogos.ubicaciones.length > 0 && (
-                                            <Select
-                                                value={data.ubicacion_id}
-                                                onValueChange={(v) =>
-                                                    setData('ubicacion_id', v)
-                                                }
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Sin ubicacion" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {catalogos.ubicaciones.map(
-                                                        (ubicacion) => (
-                                                            <SelectItem
-                                                                key={
-                                                                    ubicacion.id
-                                                                }
-                                                                value={String(
-                                                                    ubicacion.id,
-                                                                )}
-                                                            >
-                                                                {
-                                                                    ubicacion.nombre
-                                                                }
-                                                                {ubicacion.edificio &&
-                                                                    ` - ${ubicacion.edificio}`}
-                                                            </SelectItem>
-                                                        ),
-                                                    )}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                        <InputError
-                                            message={errors.ubicacion_id}
-                                        />
-                                    </div>
-                                </div>
-
-                                {esAdmin && catalogos.usuarios.length > 0 && (
-                                    <div className="grid gap-2">
-                                        <Label>Solicitante</Label>
+                                <div className="grid gap-2">
+                                    <Label>
+                                        Prioridad{' '}
+                                        <span className="text-muted-foreground font-normal">
+                                            (opcional)
+                                        </span>
+                                    </Label>
+                                    {catalogos.prioridades.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            No hay prioridades.
+                                        </p>
+                                    ) : (
                                         <Select
-                                            value={data.solicitante_id}
-                                            onValueChange={(v) => {
-                                                const usuario =
-                                                    catalogos.usuarios.find(
-                                                        (u) =>
-                                                            String(u.id) === v,
-                                                    );
-                                                setData((prev) => ({
-                                                    ...prev,
-                                                    solicitante_id: v,
-                                                    ...(usuario?.area_id
-                                                        ? {
-                                                              area_id: String(
-                                                                  usuario.area_id,
-                                                              ),
-                                                          }
-                                                        : {}),
-                                                }));
-                                            }}
+                                            value={data.prioridad_id}
+                                            onValueChange={(v) =>
+                                                setData('prioridad_id', v)
+                                            }
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Seleccionar usuario..." />
+                                                <SelectValue placeholder="Seleccionar..." />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {catalogos.usuarios.map(
-                                                    (usuario) => (
+                                                {catalogos.prioridades.map(
+                                                    (prioridad) => (
                                                         <SelectItem
-                                                            key={usuario.id}
-                                                            value={String(
-                                                                usuario.id,
-                                                            )}
+                                                            key={prioridad.id}
+                                                            value={String(prioridad.id)}
                                                         >
-                                                            {usuario.name} (
-                                                            {usuario.email})
+                                                            <span className="flex items-center gap-2">
+                                                                <span
+                                                                    className="inline-block size-2 rounded-full"
+                                                                    style={{
+                                                                        backgroundColor:
+                                                                            prioridad.color,
+                                                                    }}
+                                                                />
+                                                                {prioridad.nombre}
+                                                                <span className="text-muted-foreground">
+                                                                    ({prioridad.horas_resolucion}h)
+                                                                </span>
+                                                            </span>
                                                         </SelectItem>
                                                     ),
                                                 )}
                                             </SelectContent>
                                         </Select>
-                                        <InputError
-                                            message={errors.solicitante_id}
-                                        />
-                                    </div>
-                                )}
+                                    )}
+                                    <InputError
+                                        message={errors.prioridad_id}
+                                    />
+                                </div>
                             </>
                         )}
 
@@ -477,7 +378,8 @@ export default function ModalCrearTicket({ catalogos }: Props) {
                             />
                             <InputError
                                 message={
-                                    errors['adjuntos'] || errors['adjuntos.0']
+                                    (errors as Record<string, string>)['adjuntos'] ||
+                                    (errors as Record<string, string>)['adjuntos.0']
                                 }
                             />
                         </div>

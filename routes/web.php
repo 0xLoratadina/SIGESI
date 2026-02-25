@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdjuntoController;
 use App\Http\Controllers\Admin\AreaController;
 use App\Http\Controllers\Admin\AuxiliarController;
 use App\Http\Controllers\Admin\CatalogosController;
@@ -34,6 +35,7 @@ Route::middleware(['auth', 'verified', 'onboarding'])->group(function () {
     Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
     Route::put('tickets/{ticket}', [TicketController::class, 'update'])->name('tickets.update');
     Route::post('tickets', [TicketController::class, 'store'])->name('tickets.store');
+    Route::get('adjuntos/{adjunto}', [AdjuntoController::class, 'show'])->name('adjuntos.show');
 });
 
 Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')->group(function () {

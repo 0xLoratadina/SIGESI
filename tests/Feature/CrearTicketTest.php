@@ -19,7 +19,7 @@ test('validacion rechaza datos incompletos para auxiliar', function () {
     $this->actingAs(User::factory()->auxiliar()->create());
 
     $this->post(route('tickets.store'), [])
-        ->assertSessionHasErrors(['titulo', 'descripcion', 'area_id', 'categoria_id', 'prioridad_id']);
+        ->assertSessionHasErrors(['titulo', 'descripcion', 'area_id']);
 });
 
 test('solicitante solo requiere titulo y descripcion', function () {
@@ -54,6 +54,49 @@ test('solicitante recibe valores por defecto para area categoria y prioridad', f
         ->area_id->toBe($area->id)
         ->categoria_id->toBe($categoria->id)
         ->prioridad_id->toBe($prioridad->id);
+});
+
+test('auxiliar recibe defaults para categoria y prioridad', function () {
+    $area = Area::factory()->create();
+    $categoria = Categoria::factory()->create();
+    $prioridad = Prioridad::factory()->create();
+    $auxiliar = User::factory()->auxiliar()->create();
+
+    $this->actingAs($auxiliar);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Ticket sin categoria ni prioridad',
+        'descripcion' => 'Solo se envia titulo descripcion y area para verificar defaults',
+        'area_id' => $area->id,
+    ])->assertRedirect(route('dashboard'));
+
+    $ticket = Ticket::first();
+    expect($ticket)
+        ->categoria_id->toBe($categoria->id)
+        ->prioridad_id->toBe($prioridad->id);
+});
+
+test('admin recibe defaults para categoria y prioridad', function () {
+    $area = Area::factory()->create();
+    $categoria = Categoria::factory()->create();
+    $prioridad = Prioridad::factory()->create();
+    $admin = User::factory()->administrador()->create();
+    $solicitante = User::factory()->solicitante()->create(['area_id' => $area->id]);
+
+    $this->actingAs($admin);
+
+    $this->post(route('tickets.store'), [
+        'titulo' => 'Ticket admin sin opcionales',
+        'descripcion' => 'Admin crea ticket con solo los campos requeridos minimos',
+        'area_id' => $area->id,
+        'solicitante_id' => $solicitante->id,
+    ])->assertRedirect(route('dashboard'));
+
+    $ticket = Ticket::first();
+    expect($ticket)
+        ->categoria_id->toBe($categoria->id)
+        ->prioridad_id->toBe($prioridad->id)
+        ->solicitante_id->toBe($solicitante->id);
 });
 
 test('titulo no puede exceder 255 caracteres', function () {
@@ -193,10 +236,10 @@ test('numero de ticket se genera automaticamente', function () {
     expect($tickets[1]->numero)->toBe('TK-0002');
 });
 
-test('ticket se puede crear con ubicacion', function () {
+test('ubicacion_id se ignora en la creacion de ticket', function () {
     $usuario = User::factory()->auxiliar()->create();
     $area = Area::factory()->create();
-    $categoria = Categoria::factory()->create();
+    Categoria::factory()->create();
     $prioridad = Prioridad::factory()->create();
     $ubicacion = Ubicacion::factory()->create();
 
@@ -206,12 +249,11 @@ test('ticket se puede crear con ubicacion', function () {
         'titulo' => 'Problema en laboratorio',
         'descripcion' => 'Las computadoras del laboratorio no encienden correctamente',
         'area_id' => $area->id,
-        'categoria_id' => $categoria->id,
         'prioridad_id' => $prioridad->id,
         'ubicacion_id' => $ubicacion->id,
     ])->assertRedirect(route('dashboard'));
 
-    expect(Ticket::first())->ubicacion_id->toBe($ubicacion->id);
+    expect(Ticket::first())->ubicacion_id->toBeNull();
 });
 
 test('fecha limite se calcula automaticamente de la prioridad', function () {

@@ -4,7 +4,6 @@ import {
     Check,
     Loader2,
     MapPin,
-    Paperclip,
     Save,
     Tag,
     User as UserIcon,
@@ -28,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import VisorAdjuntos from '@/components/visor-adjuntos';
 import {
     formatearFecha,
     obtenerClaseEstado,
@@ -47,12 +47,6 @@ type Props = {
     estados: EstadoTicket[];
     catalogos?: CatalogosDashboard;
 };
-
-function formatearTamano(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export default function DialogDetalleTicket({
     ticketId,
@@ -423,29 +417,7 @@ export default function DialogDetalleTicket({
 
                         {/* Adjuntos */}
                         {ticket.adjuntos && ticket.adjuntos.length > 0 && (
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-medium">
-                                    Adjuntos ({ticket.adjuntos.length})
-                                </h4>
-                                <div className="space-y-1.5">
-                                    {ticket.adjuntos.map((adjunto) => (
-                                        <div
-                                            key={adjunto.id}
-                                            className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                                        >
-                                            <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
-                                            <span className="truncate">
-                                                {adjunto.nombre}
-                                            </span>
-                                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                                                {formatearTamano(
-                                                    adjunto.tamano,
-                                                )}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            <VisorAdjuntos adjuntos={ticket.adjuntos} />
                         )}
 
                         {/* Footer con boton guardar (admin) */}

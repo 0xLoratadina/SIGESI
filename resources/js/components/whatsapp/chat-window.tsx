@@ -265,7 +265,7 @@ export default function ChatWindow({
                 <div
                     ref={scrollRef}
                     onScroll={checkIfAtBottom}
-                    className="scrollbar-thin absolute inset-0 space-y-4 overflow-y-auto p-4 pb-6"
+                    className="absolute inset-0 space-y-4 overflow-y-auto p-4 pb-6"
                 >
                     {mensajes.length === 0 ? (
                         <div className="flex h-full items-center justify-center text-muted-foreground">

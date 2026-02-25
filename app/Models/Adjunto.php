@@ -20,11 +20,20 @@ class Adjunto extends Model
         'tipo_mime',
     ];
 
+    protected $appends = ['url'];
+
     protected function casts(): array
     {
         return [
             'tamano' => 'integer',
         ];
+    }
+
+    // ── Accessors ─────────────────────────────────────
+
+    public function getUrlAttribute(): string
+    {
+        return route('adjuntos.show', $this->id);
     }
 
     // ── Relaciones ──────────────────────────────────────────

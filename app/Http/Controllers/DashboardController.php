@@ -8,7 +8,6 @@ use App\Models\Area;
 use App\Models\Categoria;
 use App\Models\Prioridad;
 use App\Models\Ticket;
-use App\Models\Ubicacion;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -68,8 +67,7 @@ class DashboardController extends Controller
             'catalogos' => Inertia::defer(fn () => [
                 'areas' => Area::query()->where('activo', true)->select('id', 'nombre')->orderBy('nombre')->get(),
                 'categorias' => Categoria::query()->where('activo', true)->select('id', 'nombre', 'padre_id')->orderBy('nombre')->get(),
-                'prioridades' => Prioridad::query()->where('activo', true)->select('id', 'nombre', 'color', 'nivel')->orderBy('nivel')->get(),
-                'ubicaciones' => Ubicacion::query()->where('activo', true)->select('id', 'nombre', 'edificio', 'piso', 'area_id')->orderBy('nombre')->get(),
+                'prioridades' => Prioridad::query()->where('activo', true)->select('id', 'nombre', 'color', 'nivel', 'horas_resolucion')->orderBy('nivel')->get(),
                 'auxiliares' => $usuario->esAdmin()
                     ? User::query()->where('activo', true)->where('rol', Rol::Auxiliar)->select('id', 'name')->orderBy('name')->get()
                     : [],

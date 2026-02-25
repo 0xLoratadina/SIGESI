@@ -9,6 +9,7 @@ use App\Models\Adjunto;
 use App\Models\Categoria;
 use App\Models\Prioridad;
 use App\Models\Ticket;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -101,11 +102,10 @@ class TicketController extends Controller
             $datos['solicitante_id'] = $request->user()->id;
         }
 
-        if ($request->user()->esSolicitante()) {
-            $datos['area_id'] = $datos['area_id'] ?? $request->user()->area_id;
-            $datos['categoria_id'] = $datos['categoria_id'] ?? Categoria::query()->where('activo', true)->value('id');
-            $datos['prioridad_id'] = $datos['prioridad_id'] ?? Prioridad::query()->where('activo', true)->orderByDesc('nivel')->value('id');
-        }
+        $solicitante = User::find($datos['solicitante_id']);
+        $datos['area_id'] = $datos['area_id'] ?? $solicitante?->area_id;
+        $datos['categoria_id'] = $datos['categoria_id'] ?? Categoria::query()->where('activo', true)->value('id');
+        $datos['prioridad_id'] = $datos['prioridad_id'] ?? Prioridad::query()->where('activo', true)->orderByDesc('nivel')->value('id');
 
         $prioridad = Prioridad::find($datos['prioridad_id'] ?? null);
         if ($prioridad && $prioridad->horas_resolucion) {

@@ -80,7 +80,7 @@ export type AuxiliarAdmin = {
 export type CatalogosDashboard = {
     areas: Pick<Area, 'id' | 'nombre'>[];
     categorias: Pick<Categoria, 'id' | 'nombre' | 'padre_id'>[];
-    prioridades: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel'>[];
+    prioridades: Pick<Prioridad, 'id' | 'nombre' | 'color' | 'nivel' | 'horas_resolucion'>[];
     ubicaciones: Pick<
         Ubicacion,
         'id' | 'nombre' | 'edificio' | 'piso' | 'area_id'
@@ -138,6 +138,7 @@ export type Adjunto = {
     nombre: string;
     tamano: number;
     tipo_mime: string;
+    url: string;
 };
 
 export type TicketDetalle = Ticket & {

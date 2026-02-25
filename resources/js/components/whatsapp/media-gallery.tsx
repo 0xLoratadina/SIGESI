@@ -146,7 +146,7 @@ export default function MediaGallery({ mensajes, urlActiva, onClose }: Props) {
                 <div className="shrink-0 border-t border-white/10 bg-black/60 px-4 py-2">
                     <div
                         ref={thumbnailsRef}
-                        className="scrollbar-thin flex justify-center gap-1 overflow-x-auto"
+                        className="flex justify-center gap-1 overflow-x-auto"
                     >
                         {mediaItems.map((item, idx) => (
                             <button
