@@ -19,15 +19,21 @@ class WhatsAppController extends Controller
     public function __construct(
         private WhatsAppService $whatsAppService,
         private EvolutionApiService $evolutionApi
-    ) {}
+    ) {
+    }
 
     public function index(): Response
     {
+        $estadoConexion = $this->obtenerEstadoConexion();
+        $conectado = $estadoConexion === 'conectado';
+
         return Inertia::render('admin/whatsapp/index', [
-            'chats' => $this->whatsAppService->getChats(),
-            'mensajes' => Inertia::defer(fn () => $this->whatsAppService->getMensajesPorChat()),
-            'tickets' => $this->whatsAppService->getTicketsPorChat(),
-            'estadoConexion' => $this->obtenerEstadoConexion(),
+            'chats' => $conectado ? $this->whatsAppService->getChats() : [],
+            'mensajes' => $conectado
+                ? Inertia::defer(fn() => $this->whatsAppService->getMensajesPorChat())
+                : [],
+            'tickets' => $conectado ? $this->whatsAppService->getTicketsPorChat() : [],
+            'estadoConexion' => $estadoConexion,
             'ultimaActualizacion' => now()->toISOString(),
         ]);
     }
@@ -39,23 +45,37 @@ class WhatsAppController extends Controller
     public function actualizaciones(Request $request): JsonResponse
     {
         $desde = $request->input('desde');
-        $chatActivoId = $request->input('chat_activo');
         $timestamp = $desde ? \Carbon\Carbon::parse($desde) : now()->subMinutes(5);
 
-        // Buscar mensajes nuevos en BD (los webhooks se encargan de guardar mensajes entrantes)
         $mensajesNuevos = WhatsAppMensaje::with('contacto')
             ->where('created_at', '>', $timestamp)
             ->orderBy('created_at')
             ->get();
 
-        // Agrupar por contacto
-        $mensajesPorChat = [];
-        foreach ($mensajesNuevos as $mensaje) {
+        $mensajesPorChat = $this->agruparMensajesPorChat($mensajesNuevos);
+
+        $contactoIds = $mensajesNuevos->pluck('contacto_id')->unique();
+        $chatsActualizados = $this->obtenerChatsActualizados($contactoIds, $timestamp);
+
+        return response()->json([
+            'mensajes' => $mensajesPorChat,
+            'chats' => $chatsActualizados,
+            'timestamp' => now()->toISOString(),
+            'hayNuevos' => $mensajesNuevos->isNotEmpty(),
+        ]);
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, WhatsAppMensaje> $mensajes
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function agruparMensajesPorChat(\Illuminate\Support\Collection $mensajes): array
+    {
+        $agrupados = [];
+        foreach ($mensajes as $mensaje) {
+            /** @var WhatsAppMensaje $mensaje */
             $contactoId = (string) $mensaje->contacto_id;
-            if (! isset($mensajesPorChat[$contactoId])) {
-                $mensajesPorChat[$contactoId] = [];
-            }
-            $mensajesPorChat[$contactoId][] = [
+            $agrupados[$contactoId][] = [
                 'id' => (string) $mensaje->id,
                 'whatsapp_id' => $mensaje->whatsapp_id,
                 'tipo' => $mensaje->tipo->value,
@@ -71,19 +91,25 @@ class WhatsAppController extends Controller
                 ] : null,
             ];
         }
+        return $agrupados;
+    }
 
-        // Obtener chats actualizados con eager loading (evitar N+1)
-        $contactoIds = $mensajesNuevos->pluck('contacto_id')->unique();
-        $contactosActualizados = WhatsAppContacto::query()
+    /**
+     * @param \Illuminate\Support\Collection<int, mixed> $contactoIds
+     * @return array<string, array<string, mixed>>
+     */
+    private function obtenerChatsActualizados(\Illuminate\Support\Collection $contactoIds, \Carbon\Carbon $timestamp): array
+    {
+        $contactos = WhatsAppContacto::query()
             ->where(function ($q) use ($contactoIds, $timestamp) {
                 $q->whereIn('id', $contactoIds)
                     ->orWhere('updated_at', '>', $timestamp);
             })
-            ->with(['mensajes' => fn ($q) => $q->latest('enviado_at')->limit(1)])
-            ->withCount(['mensajes as no_leidos' => fn ($q) => $q->where('tipo', 'recibido')->where('leido', false)])
+            ->with(['mensajes' => fn($q) => $q->latest('enviado_at')->limit(1)])
+            ->withCount(['mensajes as no_leidos' => fn($q) => $q->where('tipo', 'recibido')->where('leido', false)])
             ->get();
 
-        $chatsActualizados = $contactosActualizados->map(function (WhatsAppContacto $contacto) {
+        return $contactos->map(function (WhatsAppContacto $contacto) {
             $ultimoMensaje = $contacto->mensajes->first();
 
             return [
@@ -99,13 +125,6 @@ class WhatsAppController extends Controller
                 'estado_ticket' => $contacto->estado_ticket->value,
             ];
         })->keyBy('id')->all();
-
-        return response()->json([
-            'mensajes' => $mensajesPorChat,
-            'chats' => $chatsActualizados,
-            'timestamp' => now()->toISOString(),
-            'hayNuevos' => $mensajesNuevos->isNotEmpty(),
-        ]);
     }
 
     /**
@@ -133,14 +152,14 @@ class WhatsAppController extends Controller
 
             // Agregar contactos con actividad reciente (máximo 5)
             $contactosRecientes = WhatsAppContacto::query()
-                ->when($chatActivoId, fn ($q) => $q->where('id', '!=', $chatActivoId))
+                ->when($chatActivoId, fn($q) => $q->where('id', '!=', $chatActivoId))
                 ->orderByDesc('updated_at')
                 ->limit(5)
                 ->get();
             $contactos = $contactos->merge($contactosRecientes);
 
             foreach ($contactos as $contacto) {
-                if (! $contacto->whatsapp_id) {
+                if (!$contacto->whatsapp_id) {
                     continue;
                 }
 
@@ -164,7 +183,15 @@ class WhatsAppController extends Controller
     private function obtenerEstadoConexion(): string
     {
         return Cache::remember('whatsapp_estado_conexion', 30, function () {
-            if ($this->evolutionApi->estaConectado()) {
+            $estado = $this->evolutionApi->obtenerEstado();
+
+            // Si la instancia no existe en Evolution API, limpiar caches y retornar desconectado
+            if (!empty($estado['instanceNotFound'])) {
+                cache()->forget('whatsapp_qrcode');
+                return 'desconectado';
+            }
+
+            if (($estado['instance']['state'] ?? 'close') === 'open') {
                 return 'conectado';
             }
 
@@ -182,27 +209,62 @@ class WhatsAppController extends Controller
      */
     public function conectar(): JsonResponse
     {
-        $resultado = $this->evolutionApi->crearInstancia();
+        try {
+            $resultado = $this->evolutionApi->crearInstancia();
 
-        if (isset($resultado['error'])) {
-            return response()->json(['error' => $resultado['message']], 500);
+            if (isset($resultado['error'])) {
+                // La instancia puede ya existir, intentar reconectar directamente
+                $reconexion = $this->evolutionApi->reconectar();
+                if ($reconexion && isset($reconexion['base64'])) {
+                    $qrcode = $this->normalizarBase64Qr($reconexion['base64']);
+                    cache()->put('whatsapp_qrcode', $qrcode, now()->addMinutes(3));
+                    Cache::forget('whatsapp_estado_conexion');
+
+                    // Reconfigurar webhook en caso de que se haya perdido (ej: reinicio de Docker)
+                    $this->configurarWebhookAutomatico();
+
+                    return response()->json([
+                        'status' => 'ok',
+                        'qrcode' => $qrcode,
+                    ]);
+                }
+
+                return response()->json(['error' => $resultado['message']], 500);
+            }
+
+            $rawBase64 = $resultado['qrcode']['base64'] ?? null;
+            $qrcode = $rawBase64 ? $this->normalizarBase64Qr($rawBase64) : null;
+
+            if ($qrcode) {
+                cache()->put('whatsapp_qrcode', $qrcode, now()->addMinutes(3));
+            }
+
+            // Configurar webhook automáticamente
+            $this->configurarWebhookAutomatico();
+
+            Cache::forget('whatsapp_estado_conexion');
+
+            return response()->json([
+                'status' => 'ok',
+                'qrcode' => $qrcode,
+            ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::channel('whatsapp')->error('Error de conexión con Evolution API', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'No se pudo conectar con Evolution API. Verifica que el servicio esté corriendo.',
+            ], 503);
+        } catch (\Exception $e) {
+            Log::channel('whatsapp')->error('Error inesperado al conectar WhatsApp', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Error inesperado: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $qrcode = $resultado['qrcode']['base64'] ?? null;
-
-        if ($qrcode) {
-            cache()->put('whatsapp_qrcode', $qrcode, now()->addMinutes(2));
-        }
-
-        // Configurar webhook automáticamente
-        $this->configurarWebhookAutomatico();
-
-        Cache::forget('whatsapp_estado_conexion');
-
-        return response()->json([
-            'status' => 'ok',
-            'qrcode' => $qrcode,
-        ]);
     }
 
     /**
@@ -239,11 +301,12 @@ class WhatsAppController extends Controller
 
         $resultado = $this->evolutionApi->obtenerQrCode();
 
-        if (! $resultado) {
+        if (!$resultado) {
             return response()->json(['error' => 'No hay QR disponible'], 404);
         }
 
-        $qrcode = $resultado['base64'] ?? null;
+        $rawBase64 = $resultado['base64'] ?? null;
+        $qrcode = $rawBase64 ? $this->normalizarBase64Qr($rawBase64) : null;
 
         return response()->json(['qrcode' => $qrcode]);
     }
@@ -254,6 +317,12 @@ class WhatsAppController extends Controller
     public function estado(): JsonResponse
     {
         $resultado = $this->evolutionApi->obtenerEstado();
+
+        // Si la instancia ya no existe, limpiar caches
+        if (!empty($resultado['instanceNotFound'])) {
+            cache()->forget('whatsapp_qrcode');
+            Cache::forget('whatsapp_estado_conexion');
+        }
 
         return response()->json([
             'conectado' => ($resultado['instance']['state'] ?? 'close') === 'open',
@@ -363,7 +432,7 @@ class WhatsAppController extends Controller
 
         foreach ($chats as $chat) {
             // Solo sincronizar chats individuales con teléfono (no @lid ni grupos)
-            if (! str_ends_with($chat['remoteJid'], '@s.whatsapp.net')) {
+            if (!str_ends_with($chat['remoteJid'], '@s.whatsapp.net')) {
                 continue;
             }
 
@@ -421,7 +490,7 @@ class WhatsAppController extends Controller
             $mediaTipo = $this->determinarTipoMedia($message);
             $contenido = $this->extraerContenido($msg);
 
-            if (! $contenido) {
+            if (!$contenido) {
                 continue;
             }
 
@@ -471,11 +540,21 @@ class WhatsAppController extends Controller
         $contactosLid = WhatsAppContacto::where('whatsapp_id', 'LIKE', '%@lid')->get();
 
         foreach ($contactosLid as $contactoLid) {
-            // Buscar contacto real por nombre
-            $contactoReal = WhatsAppContacto::where('nombre', $contactoLid->nombre)
-                ->where('whatsapp_id', 'NOT LIKE', '%@lid')
+            /** @var WhatsAppContacto $contactoLid */
+
+            // 1. Buscar contacto real que ya tiene este lid_id mapeado
+            /** @var WhatsAppContacto|null $contactoReal */
+            $contactoReal = WhatsAppContacto::where('lid_id', $contactoLid->whatsapp_id)
                 ->where('id', '!=', $contactoLid->id)
                 ->first();
+
+            // 2. Buscar contacto real por nombre
+            if (!$contactoReal) {
+                $contactoReal = WhatsAppContacto::where('nombre', $contactoLid->nombre)
+                    ->where('whatsapp_id', 'NOT LIKE', '%@lid')
+                    ->where('id', '!=', $contactoLid->id)
+                    ->first();
+            }
 
             if ($contactoReal) {
                 Log::channel('whatsapp')->info('Fusionando contacto @lid', [
@@ -506,7 +585,7 @@ class WhatsAppController extends Controller
             ?? $message['documentMessage']['contextInfo']
             ?? null;
 
-        if (! $contextInfo || empty($contextInfo['stanzaId'])) {
+        if (!$contextInfo || empty($contextInfo['stanzaId'])) {
             return ['id' => null, 'contenido' => null, 'tipo' => null];
         }
 
@@ -562,7 +641,7 @@ class WhatsAppController extends Controller
 
         // Documento
         if (isset($message['documentMessage'])) {
-            return '[Documento: '.($message['documentMessage']['fileName'] ?? 'archivo').']';
+            return '[Documento: ' . ($message['documentMessage']['fileName'] ?? 'archivo') . ']';
         }
 
         // Sticker
@@ -577,7 +656,7 @@ class WhatsAppController extends Controller
 
         // Contacto
         if (isset($message['contactMessage'])) {
-            return '[Contacto: '.($message['contactMessage']['displayName'] ?? 'contacto').']';
+            return '[Contacto: ' . ($message['contactMessage']['displayName'] ?? 'contacto') . ']';
         }
 
         return null;
@@ -619,7 +698,7 @@ class WhatsAppController extends Controller
         try {
             $mediaData = $this->evolutionApi->descargarMedia($messageId, $mediaTipo);
 
-            if (! $mediaData || empty($mediaData['base64'])) {
+            if (!$mediaData || empty($mediaData['base64'])) {
                 return null;
             }
 
@@ -627,13 +706,15 @@ class WhatsAppController extends Controller
             $mimeType = $mediaData['mimetype'] ?? $this->getMimeTypeDefault($mediaTipo);
             $extension = $this->getExtension($mimeType, $mediaTipo, $message);
 
-            $fileName = 'whatsapp/'.date('Y/m/').\Illuminate\Support\Str::uuid().'.'.$extension;
+            $fileName = 'whatsapp/' . date('Y/m/') . \Illuminate\Support\Str::uuid() . '.' . $extension;
 
-            \Illuminate\Support\Facades\Storage::disk('public')->put($fileName, base64_decode($base64));
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = \Illuminate\Support\Facades\Storage::disk('public');
+            $disk->put($fileName, base64_decode($base64));
 
-            return \Illuminate\Support\Facades\Storage::disk('public')->url($fileName);
+            return asset('storage/' . $fileName);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::channel('whatsapp')->error('Error al descargar media en sync', [
+            Log::channel('whatsapp')->error('Error al descargar media en sync', [
                 'messageId' => $messageId,
                 'error' => $e->getMessage(),
             ]);
@@ -690,6 +771,29 @@ class WhatsAppController extends Controller
     }
 
     /**
+     * Limpiar todos los datos de WhatsApp (mensajes + contactos) y desconectar.
+     * Útil para iniciar sesión con una cuenta diferente.
+     */
+    public function limpiarDatos(): JsonResponse
+    {
+        // Desconectar primero
+        $this->evolutionApi->desconectar();
+
+        // Limpiar caches
+        cache()->forget('whatsapp_qrcode');
+        cache()->forget('whatsapp_connection_state');
+        Cache::forget('whatsapp_estado_conexion');
+
+        // Borrar todos los mensajes y contactos
+        WhatsAppMensaje::query()->delete();
+        WhatsAppContacto::query()->delete();
+
+        Log::channel('whatsapp')->info('Datos de WhatsApp limpiados (mensajes y contactos eliminados)');
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
      * Iniciar nueva conversacion.
      */
     public function nuevoChat(Request $request): JsonResponse
@@ -704,11 +808,11 @@ class WhatsAppController extends Controller
 
         // Buscar contacto existente por teléfono (con o sin código de país)
         $contacto = WhatsAppContacto::where('telefono', $telefono)
-            ->orWhere('telefono', 'LIKE', '%'.$telefono)
+            ->orWhere('telefono', 'LIKE', '%' . $telefono)
             ->first();
 
-        if (! $contacto) {
-            $jid = $telefono.'@s.whatsapp.net';
+        if (!$contacto) {
+            $jid = $telefono . '@s.whatsapp.net';
             $contacto = WhatsAppContacto::buscarOCrear($jid, [
                 'nombre' => $request->input('nombre') ?? $telefono,
                 'en_linea' => false,
@@ -737,5 +841,14 @@ class WhatsAppController extends Controller
             'status' => 'ok',
             'contacto_id' => $contacto->id,
         ]);
+    }
+
+    private function normalizarBase64Qr(string $base64): string
+    {
+        if (str_starts_with($base64, 'data:')) {
+            return $base64;
+        }
+
+        return 'data:image/png;base64,'.$base64;
     }
 }

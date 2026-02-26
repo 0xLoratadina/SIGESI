@@ -6,6 +6,7 @@ use App\Enums\EstadoTicketChat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppContacto extends Model
 {
@@ -13,6 +14,7 @@ class WhatsAppContacto extends Model
 
     protected $fillable = [
         'whatsapp_id',
+        'lid_id',
         'telefono',
         'nombre',
         'avatar',
@@ -37,7 +39,7 @@ class WhatsAppContacto extends Model
 
     /**
      * Buscar o crear contacto de forma centralizada.
-     * Busca por whatsapp_id primero, luego telefono, luego crea.
+     * Busca por whatsapp_id, lid_id, o telefono, luego crea.
      * Maneja JIDs en formato @s.whatsapp.net, @c.us y @lid.
      *
      * @param  array<string, mixed>  $atributos
@@ -53,29 +55,54 @@ class WhatsAppContacto extends Model
             return $contacto;
         }
 
-        // 2. Si es @lid, buscar si existe un contacto @lid que ya migramos
-        //    o intentar encontrar el contacto real por nombre
+        // 2. Si es @lid, buscar contacto que ya tiene este lid_id mapeado
         if ($esLid) {
-            // Buscar contacto existente que tenga este @lid como whatsapp_id
-            // (ya manejado arriba)
+            $contacto = self::where('lid_id', $remoteJid)->first();
+            if ($contacto) {
+                return $contacto;
+            }
 
-            // Intentar encontrar contacto real por pushName si lo tenemos
+            // Intentar encontrar por el número contenido en el JID @lid (ej: 5213312345678@lid)
+            $lidNumero = str_replace('@lid', '', $remoteJid);
+            if (is_numeric($lidNumero)) {
+                $contactoPorTelefono = self::where('telefono', $lidNumero)
+                    ->where('whatsapp_id', 'NOT LIKE', '%@lid')
+                    ->first();
+                if ($contactoPorTelefono) {
+                    $contactoPorTelefono->update(['lid_id' => $remoteJid]);
+                    Log::channel('whatsapp')->info('Contacto @lid mapeado por telefono', [
+                        'lid' => $remoteJid,
+                        'contacto_id' => $contactoPorTelefono->id,
+                        'telefono' => $lidNumero,
+                    ]);
+                    return $contactoPorTelefono;
+                }
+            }
+
+            // Intentar encontrar contacto real por pushName
             $nombre = $atributos['nombre'] ?? null;
             if ($nombre && $nombre !== $remoteJid) {
                 $contactoPorNombre = self::where('nombre', $nombre)
                     ->where('whatsapp_id', 'NOT LIKE', '%@lid')
                     ->first();
                 if ($contactoPorNombre) {
+                    $contactoPorNombre->update(['lid_id' => $remoteJid]);
+                    Log::channel('whatsapp')->info('Contacto @lid mapeado por nombre', [
+                        'lid' => $remoteJid,
+                        'contacto_id' => $contactoPorNombre->id,
+                        'nombre' => $nombre,
+                    ]);
                     return $contactoPorNombre;
                 }
             }
 
-            // No crear contacto nuevo con @lid, guardar con JID completo
+            // Crear con el número limpio como teléfono si es numérico
+            $telefonoLid = is_numeric($lidNumero) ? $lidNumero : $remoteJid;
             return self::firstOrCreate(
                 ['whatsapp_id' => $remoteJid],
                 array_merge([
-                    'telefono' => $remoteJid,
-                    'nombre' => $atributos['nombre'] ?? $remoteJid,
+                    'telefono' => $telefonoLid,
+                    'nombre' => $atributos['nombre'] ?? $telefonoLid,
                     'en_linea' => $atributos['en_linea'] ?? false,
                 ], $atributos)
             );
@@ -127,12 +154,23 @@ class WhatsAppContacto extends Model
      */
     public function fusionarDesde(self $contactoLid): void
     {
+        // Guardar el lid_id para futuras búsquedas
+        if (str_ends_with($contactoLid->whatsapp_id, '@lid') && !$this->lid_id) {
+            $this->update(['lid_id' => $contactoLid->whatsapp_id]);
+        }
+
         // Mover todos los mensajes del contacto @lid a este
         WhatsAppMensaje::where('contacto_id', $contactoLid->id)
             ->update(['contacto_id' => $this->id]);
 
         // Eliminar el contacto @lid
         $contactoLid->delete();
+
+        Log::channel('whatsapp')->info('Contacto @lid fusionado', [
+            'lid_id' => $contactoLid->whatsapp_id,
+            'contacto_real_id' => $this->id,
+            'contacto_real_telefono' => $this->telefono,
+        ]);
     }
 
     public function ultimoMensaje(): ?WhatsAppMensaje

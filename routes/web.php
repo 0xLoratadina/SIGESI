@@ -75,6 +75,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')-
     Route::post('whatsapp/contactos/{contacto}/leidos', [WhatsAppController::class, 'marcarLeidos'])->name('admin.whatsapp.marcar-leidos');
     Route::get('whatsapp/contactos', [WhatsAppController::class, 'contactos'])->name('admin.whatsapp.contactos');
     Route::post('whatsapp/sincronizar', [WhatsAppController::class, 'sincronizar'])->name('admin.whatsapp.sincronizar');
+    Route::post('whatsapp/limpiar-datos', [WhatsAppController::class, 'limpiarDatos'])->name('admin.whatsapp.limpiar-datos');
     Route::post('whatsapp/nuevo-chat', [WhatsAppController::class, 'nuevoChat'])->name('admin.whatsapp.nuevo-chat');
 });
 

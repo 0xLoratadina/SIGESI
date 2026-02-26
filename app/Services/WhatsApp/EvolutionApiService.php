@@ -80,7 +80,7 @@ class EvolutionApiService
         $response = $this->client()->get("/instance/connectionState/{$this->instanceName}");
 
         if ($response->failed()) {
-            return ['state' => 'close'];
+            return ['state' => 'close', 'instanceNotFound' => true];
         }
 
         return $response->json();
@@ -96,6 +96,27 @@ class EvolutionApiService
         $response = $this->client()->get("/instance/qrcode/{$this->instanceName}");
 
         if ($response->failed()) {
+            return null;
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Reconectar instancia existente (genera QR para una instancia ya creada).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function reconectar(): ?array
+    {
+        $response = $this->client()->get("/instance/connect/{$this->instanceName}");
+
+        if ($response->failed()) {
+            Log::channel('whatsapp')->error('Error al reconectar instancia', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
             return null;
         }
 

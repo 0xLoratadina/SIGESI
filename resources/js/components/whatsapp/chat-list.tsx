@@ -13,6 +13,7 @@ import {
     Video,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import WhatsAppConnection from '@/components/whatsapp/whatsapp-connection';
 import {
     nuevoChat,
     contactos as obtenerContactos,
@@ -126,6 +127,8 @@ type Props = {
     chatActivo: string | null;
     onSelectChat: (id: string) => void;
     estadoConexion: 'desconectado' | 'conectando' | 'conectado';
+    onEstadoCambiado?: (nuevoEstado: 'desconectado' | 'conectando' | 'conectado') => void;
+    onDatosLimpiados?: () => void;
 };
 
 const filtros: { valor: FiltroEstado; label: string }[] = [
@@ -140,6 +143,8 @@ export default function ChatList({
     chatActivo,
     onSelectChat,
     estadoConexion,
+    onEstadoCambiado,
+    onDatosLimpiados,
 }: Props) {
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
@@ -479,24 +484,11 @@ export default function ChatList({
                             )}
                         </DialogContent>
                     </Dialog>
-                    <div className="flex items-center gap-2">
-                        <div
-                            className={`h-2 w-2 rounded-full ${
-                                estadoConexion === 'conectado'
-                                    ? 'bg-green-500'
-                                    : estadoConexion === 'conectando'
-                                      ? 'animate-pulse bg-yellow-500'
-                                      : 'bg-red-500'
-                            }`}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                            {estadoConexion === 'conectado'
-                                ? 'Conectado'
-                                : estadoConexion === 'conectando'
-                                  ? 'Conectando...'
-                                  : 'Desconectado'}
-                        </span>
-                    </div>
+                    <WhatsAppConnection
+                        estadoConexion={estadoConexion}
+                        onEstadoCambiado={onEstadoCambiado}
+                        onDatosLimpiados={onDatosLimpiados}
+                    />
                 </div>
             </div>
 
@@ -519,11 +511,10 @@ export default function ChatList({
                     <button
                         key={filtro.valor}
                         onClick={() => setFiltroEstado(filtro.valor)}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${
-                            filtroEstado === filtro.valor
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors ${filtroEstado === filtro.valor
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                            }`}
                     >
                         {filtro.label}
                     </button>
@@ -541,9 +532,8 @@ export default function ChatList({
                         <button
                             key={chat.id}
                             onClick={() => onSelectChat(chat.id)}
-                            className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors hover:bg-accent ${
-                                chatActivo === chat.id ? 'bg-accent' : ''
-                            }`}
+                            className={`flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors hover:bg-accent ${chatActivo === chat.id ? 'bg-accent' : ''
+                                }`}
                         >
                             <div className="relative shrink-0">
                                 <Avatar className="h-12 w-12">
@@ -563,11 +553,10 @@ export default function ChatList({
                                     </AvatarFallback>
                                 </Avatar>
                                 <div
-                                    className={`absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-background ${
-                                        chat.en_linea
-                                            ? 'bg-green-500'
-                                            : 'bg-muted-foreground/40'
-                                    }`}
+                                    className={`absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-background ${chat.en_linea
+                                        ? 'bg-green-500'
+                                        : 'bg-muted-foreground/40'
+                                        }`}
                                 />
                             </div>
                             <div className="min-w-0 flex-1">

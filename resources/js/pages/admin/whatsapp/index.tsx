@@ -1,11 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { actualizaciones } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
+import { actualizaciones, estado as estadoRoute } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
 import { Card } from '@/components/ui/card';
 import ChatList from '@/components/whatsapp/chat-list';
 import ChatWindow from '@/components/whatsapp/chat-window';
 import ContactInfo from '@/components/whatsapp/contact-info';
+import WhatsAppSetupPage from '@/components/whatsapp/whatsapp-setup-page';
 import AppLayout from '@/layouts/app-layout';
 import { whatsapp } from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
@@ -71,10 +72,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 // Intervalos de polling adaptativos
-const INTERVALO_CON_CHAT = 5000; // 5s con chat activo
-const INTERVALO_SIN_CHAT = 15000; // 15s sin chat activo
-const INTERVALO_RAPIDO = 3000; // 3s después de mensaje nuevo
-const DURACION_RAPIDO = 30000; // 30s en modo rápido
+const INTERVALO_CON_CHAT = 2000;  // 2s con chat activo
+const INTERVALO_SIN_CHAT = 5000;  // 5s sin chat activo
+const INTERVALO_RAPIDO = 1000;    // 1s después de mensaje nuevo
+const DURACION_RAPIDO = 20000;    // 20s en modo rápido
 
 function ordenarChats(chats: Chat[]): Chat[] {
     return [...chats].sort((a, b) => {
@@ -102,28 +103,65 @@ export default function WhatsAppInbox({
         mensajesIniciales ?? {},
     );
     const ultimoTimestamp = useRef<string>(ultimaActualizacion);
-    const pollingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const modoRapidoHasta = useRef<number>(0);
+    const [conexion, setConexion] = useState(estadoConexion);
+    // Usar ref para chatActivo para evitar recrear el callback de polling
+    const chatActivoRef = useRef<string | null>(chatActivo);
+    const conexionRef = useRef(conexion);
 
-    // Calcular intervalo de polling adaptativo
-    const obtenerIntervalo = useCallback((): number => {
-        if (Date.now() < modoRapidoHasta.current) {
-            return INTERVALO_RAPIDO;
-        }
-        return chatActivo ? INTERVALO_CON_CHAT : INTERVALO_SIN_CHAT;
+    // Mantener refs sincronizados
+    useEffect(() => {
+        chatActivoRef.current = chatActivo;
     }, [chatActivo]);
 
-    // Función para obtener actualizaciones (acepta signal para cancelación)
+    useEffect(() => {
+        conexionRef.current = conexion;
+    }, [conexion]);
+
+    // Handler para cambio de estado de conexión
+    const handleEstadoCambiado = useCallback(
+        (nuevoEstado: typeof estadoConexion) => {
+            setConexion(nuevoEstado);
+            if (nuevoEstado === 'conectado') {
+                // Mover timestamp 2 min atrás para capturar mensajes que llegaron
+                // mientras se escaneaba el QR (polling estaba pausado en estado 'conectando')
+                const dosMinutosAtras = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+                ultimoTimestamp.current = dosMinutosAtras;
+                // Activar modo rápido para capturar actualizaciones inmediatamente
+                modoRapidoHasta.current = Date.now() + DURACION_RAPIDO;
+                // Reload completo para obtener chats y mensajes frescos de la BD
+                router.reload({ only: ['chats', 'mensajes', 'estadoConexion'] });
+            } else if (nuevoEstado === 'desconectado') {
+                // Solo desconectar: NO borramos chats/mensajes de la vista
+                // Los datos siguen en la BD y se recargarán al reconectar
+                setChatActivo(null);
+                modoRapidoHasta.current = 0;
+            }
+        },
+        [],
+    );
+
+    // Handler para limpiar todos los datos (cambiar de cuenta)
+    const handleDatosLimpiados = useCallback(() => {
+        setConexion('desconectado');
+        setChats([]);
+        setMensajes({});
+        setChatActivo(null);
+        modoRapidoHasta.current = 0;
+    }, []);
+
+    // Función para obtener actualizaciones (estable, usa refs)
     const fetchActualizaciones = useCallback(
         async (signal?: AbortSignal) => {
-            if (estadoConexion !== 'conectado') return;
+            if (conexionRef.current !== 'conectado') return;
 
             try {
                 const route = actualizaciones();
                 const response = await axios.get(route.url, {
                     params: {
                         desde: ultimoTimestamp.current,
-                        chat_activo: chatActivo,
+                        chat_activo: chatActivoRef.current,
                     },
                     signal,
                 });
@@ -191,40 +229,63 @@ export default function WhatsAppInbox({
                 console.error('Error al obtener actualizaciones:', error);
             }
         },
-        [estadoConexion, chatActivo],
+        [], // Sin dependencias - usa refs para valores que cambian
     );
 
-    // Polling adaptativo con AbortController para cancelación limpia
+    // Polling adaptativo - estable, no se reinicia con cambios de chatActivo
     useEffect(() => {
-        if (estadoConexion !== 'conectado') return;
+        if (conexion !== 'conectado') return;
 
         const abortController = new AbortController();
+        let isActive = true;
 
-        const programarSiguiente = () => {
-            if (abortController.signal.aborted) return;
-            const intervalo = obtenerIntervalo();
-            pollingTimeout.current = setTimeout(async () => {
-                if (abortController.signal.aborted) return;
-                await fetchActualizaciones(abortController.signal);
-                programarSiguiente();
-            }, intervalo);
+        const obtenerIntervalo = (): number => {
+            if (Date.now() < modoRapidoHasta.current) {
+                return INTERVALO_RAPIDO;
+            }
+            return chatActivoRef.current ? INTERVALO_CON_CHAT : INTERVALO_SIN_CHAT;
         };
 
-        // Primera consulta después de un breve delay (dejar que deferred props carguen primero)
-        pollingTimeout.current = setTimeout(() => {
-            if (abortController.signal.aborted) return;
-            fetchActualizaciones(abortController.signal).then(
-                programarSiguiente,
-            );
-        }, 2000);
+        const ejecutarPolling = async () => {
+            if (!isActive || abortController.signal.aborted) return;
+
+            await fetchActualizaciones(abortController.signal);
+
+            if (!isActive || abortController.signal.aborted) return;
+
+            const intervalo = obtenerIntervalo();
+            pollingRef.current = setTimeout(ejecutarPolling, intervalo);
+        };
+
+        // Primera consulta rápida al conectar
+        pollingRef.current = setTimeout(ejecutarPolling, 500);
 
         return () => {
+            isActive = false;
             abortController.abort();
-            if (pollingTimeout.current) {
-                clearTimeout(pollingTimeout.current);
+            if (pollingRef.current) {
+                clearTimeout(pollingRef.current);
             }
         };
-    }, [estadoConexion, fetchActualizaciones, obtenerIntervalo]);
+    }, [conexion, fetchActualizaciones]);
+
+    // Verificar periódicamente si la sesión sigue activa (para detectar desconexiones externas)
+    useEffect(() => {
+        if (conexion !== 'conectado') return;
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await axios.get(estadoRoute().url);
+                if (!res.data.conectado) {
+                    handleEstadoCambiado('desconectado');
+                }
+            } catch {
+                // ignore errores de red
+            }
+        }, 15000);
+
+        return () => clearInterval(interval);
+    }, [conexion, handleEstadoCambiado]);
 
     // Actualizar cuando cambian los props iniciales (reload de Inertia)
     useEffect(() => {
@@ -262,15 +323,18 @@ export default function WhatsAppInbox({
                     prev.map((chat) =>
                         chat.id === chatActivo
                             ? {
-                                  ...chat,
-                                  ultimo_mensaje: mensaje.contenido,
-                                  hora_ultimo: mensaje.hora,
-                                  ultimo_mensaje_at: new Date().toISOString(),
-                              }
+                                ...chat,
+                                ultimo_mensaje: mensaje.contenido,
+                                hora_ultimo: mensaje.hora,
+                                ultimo_mensaje_at: new Date().toISOString(),
+                            }
                             : chat,
                     ),
                 ),
             );
+
+            // Activar modo rápido para detectar la confirmación del servidor
+            modoRapidoHasta.current = Date.now() + DURACION_RAPIDO;
         },
         [chatActivo],
     );
@@ -280,33 +344,41 @@ export default function WhatsAppInbox({
             <Head title="WhatsApp Inbox" />
 
             <div className="flex h-full min-h-0 flex-1 flex-col p-4">
-                <Card className="flex min-h-0 flex-1 flex-row overflow-hidden">
-                    {/* Lista de chats */}
-                    <ChatList
-                        chats={chats}
-                        chatActivo={chatActivo}
-                        onSelectChat={setChatActivo}
-                        estadoConexion={estadoConexion}
-                    />
-
-                    {/* Ventana de chat */}
-                    <ChatWindow
-                        chat={chatSeleccionado ?? null}
-                        mensajes={mensajesChat}
-                        onToggleInfo={() => setMostrarInfo(!mostrarInfo)}
-                        mostrarInfo={mostrarInfo}
-                        onMensajeEnviado={handleMensajeEnviado}
-                        onCerrarChat={() => setChatActivo(null)}
-                    />
-
-                    {/* Info del contacto */}
-                    {mostrarInfo && chatSeleccionado && (
-                        <ContactInfo
-                            chat={chatSeleccionado}
-                            tickets={ticketsChat}
+                {conexion === 'desconectado' || conexion === 'conectando' ? (
+                    <Card className="flex min-h-0 flex-1 overflow-hidden">
+                        <WhatsAppSetupPage onEstadoCambiado={handleEstadoCambiado} />
+                    </Card>
+                ) : (
+                    <Card className="flex min-h-0 flex-1 flex-row overflow-hidden">
+                        {/* Lista de chats */}
+                        <ChatList
+                            chats={chats}
+                            chatActivo={chatActivo}
+                            onSelectChat={setChatActivo}
+                            estadoConexion={conexion}
+                            onEstadoCambiado={handleEstadoCambiado}
+                            onDatosLimpiados={handleDatosLimpiados}
                         />
-                    )}
-                </Card>
+
+                        {/* Ventana de chat */}
+                        <ChatWindow
+                            chat={chatSeleccionado ?? null}
+                            mensajes={mensajesChat}
+                            onToggleInfo={() => setMostrarInfo(!mostrarInfo)}
+                            mostrarInfo={mostrarInfo}
+                            onMensajeEnviado={handleMensajeEnviado}
+                            onCerrarChat={() => setChatActivo(null)}
+                        />
+
+                        {/* Info del contacto */}
+                        {mostrarInfo && chatSeleccionado && (
+                            <ContactInfo
+                                chat={chatSeleccionado}
+                                tickets={ticketsChat}
+                            />
+                        )}
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

@@ -97,6 +97,11 @@ class WhatsAppWebhookController extends Controller
             return response()->json(['status' => 'invalid_contact']);
         }
 
+        // Si el remoteJid es @lid y el contacto no tenía lid_id, guardarlo
+        if (str_ends_with($remoteJid, '@lid') && $contacto->lid_id !== $remoteJid) {
+            $contacto->update(['lid_id' => $remoteJid]);
+        }
+
         // Actualizar nombre si cambió
         $telefono = WhatsAppContacto::extraerTelefono($remoteJid);
         if (! empty($nombre) && ($contacto->nombre === $telefono || $contacto->nombre === $contacto->whatsapp_id)) {
@@ -124,32 +129,111 @@ class WhatsAppWebhookController extends Controller
             'es_bot' => false,
         ]);
 
+        Log::channel('whatsapp')->info('Mensaje guardado via webhook', [
+            'contacto_id' => $contacto->id,
+            'contacto_nombre' => $contacto->nombre,
+            'remoteJid' => $remoteJid,
+            'es_lid' => str_ends_with($remoteJid, '@lid'),
+            'tipo' => $isFromMe ? 'enviado' : 'recibido',
+        ]);
+
         return response()->json(['status' => 'message_saved']);
     }
 
     /**
+     * Extraer base64 incluido en el payload del webhook (base64: true en config).
+     */
+    private function extraerBase64DelPayload(array $messageContent, string $mediaTipo): ?string
+    {
+        $key = match ($mediaTipo) {
+            'imagen'    => 'imageMessage',
+            'video'     => 'videoMessage',
+            'audio'     => 'audioMessage',
+            'documento' => 'documentMessage',
+            'sticker'   => 'stickerMessage',
+            default     => null,
+        };
+
+        if (! $key || empty($messageContent[$key]['base64'])) {
+            return null;
+        }
+
+        $raw = $messageContent[$key]['base64'];
+
+        // Quitar prefijo "data:...;base64," si existe
+        if (str_contains($raw, ';base64,')) {
+            $raw = substr($raw, strpos($raw, ';base64,') + 8);
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Extraer mimetype del payload del webhook.
+     */
+    private function extraerMimeTypeDelPayload(array $messageContent, string $mediaTipo): ?string
+    {
+        $key = match ($mediaTipo) {
+            'imagen'    => 'imageMessage',
+            'video'     => 'videoMessage',
+            'audio'     => 'audioMessage',
+            'documento' => 'documentMessage',
+            'sticker'   => 'stickerMessage',
+            default     => null,
+        };
+
+        if (! $key) {
+            return null;
+        }
+
+        // Normalizar "audio/ogg; codecs=opus" → "audio/ogg"
+        $mime = $messageContent[$key]['mimetype'] ?? null;
+        if ($mime && str_contains($mime, ';')) {
+            $mime = trim(explode(';', $mime)[0]);
+        }
+
+        return $mime ?: null;
+    }
+
+    /**
      * Descargar y guardar media en storage.
+     * Primero intenta usar el base64 incluido en el payload (base64: true),
+     * y hace fallback a la API solo si no está disponible.
      */
     private function descargarYGuardarMedia(string $messageId, string $mediaTipo, array $messageContent): ?string
     {
         try {
-            $mediaData = $this->evolutionApi->descargarMedia($messageId, $mediaTipo);
+            // 1. Intentar base64 del payload del webhook
+            $base64 = $this->extraerBase64DelPayload($messageContent, $mediaTipo);
+            $mimeType = $this->extraerMimeTypeDelPayload($messageContent, $mediaTipo) ?? $this->getMimeTypeForMedia($mediaTipo);
 
-            if (! $mediaData || empty($mediaData['base64'])) {
-                Log::channel('whatsapp')->warning('No se pudo descargar media', ['messageId' => $messageId]);
+            // 2. Fallback: descargar via API
+            if (! $base64) {
+                $mediaData = $this->evolutionApi->descargarMedia($messageId, $mediaTipo);
 
-                return null;
+                if (! $mediaData || empty($mediaData['base64'])) {
+                    Log::channel('whatsapp')->warning('No se pudo obtener media', ['messageId' => $messageId]);
+
+                    return null;
+                }
+
+                $raw = $mediaData['base64'];
+                if (str_contains($raw, ';base64,')) {
+                    $raw = substr($raw, strpos($raw, ';base64,') + 8);
+                }
+                $base64 = $raw;
+                $mimeType = $mediaData['mimetype'] ?? $mimeType;
+                if (str_contains($mimeType, ';')) {
+                    $mimeType = trim(explode(';', $mimeType)[0]);
+                }
             }
 
-            $base64 = $mediaData['base64'];
-            $mimeType = $mediaData['mimetype'] ?? $this->getMimeTypeForMedia($mediaTipo);
             $extension = $this->getExtensionFromMimeType($mimeType, $mediaTipo, $messageContent);
-
             $fileName = 'whatsapp/'.date('Y/m/').Str::uuid().'.'.$extension;
 
             Storage::disk('public')->put($fileName, base64_decode($base64));
 
-            return Storage::disk('public')->url($fileName);
+            return asset('storage/'.$fileName);
         } catch (\Exception $e) {
             Log::channel('whatsapp')->error('Error al guardar media', [
                 'messageId' => $messageId,
@@ -228,6 +312,15 @@ class WhatsAppWebhookController extends Controller
 
         cache()->put('whatsapp_connection_state', $state, now()->addHours(1));
 
+        // Actualizar el cache de estado para que el frontend lo detecte de inmediato
+        if ($state === 'open') {
+            cache()->put('whatsapp_estado_conexion', 'conectado', 30);
+            cache()->forget('whatsapp_qrcode');
+        } elseif (in_array($state, ['close', 'offline', 'disconnected'])) {
+            cache()->forget('whatsapp_estado_conexion');
+            cache()->forget('whatsapp_qrcode');
+        }
+
         return response()->json(['status' => 'connection_updated', 'state' => $state]);
     }
 
@@ -236,10 +329,17 @@ class WhatsAppWebhookController extends Controller
      */
     private function handleQrCodeUpdated(array $data): JsonResponse
     {
-        $qrcode = $data['data']['qrcode'] ?? null;
+        $qrcodeData = $data['data']['qrcode'] ?? null;
 
-        if ($qrcode) {
-            cache()->put('whatsapp_qrcode', $qrcode, now()->addMinutes(2));
+        if ($qrcodeData) {
+            // Extraer el base64 ya sea string directo u objeto con campo base64
+            $rawBase64 = is_string($qrcodeData) ? $qrcodeData : ($qrcodeData['base64'] ?? null);
+
+            if ($rawBase64) {
+                $base64 = str_starts_with($rawBase64, 'data:') ? $rawBase64 : 'data:image/png;base64,'.$rawBase64;
+                cache()->put('whatsapp_qrcode', $base64, now()->addMinutes(3));
+                \Illuminate\Support\Facades\Cache::forget('whatsapp_estado_conexion');
+            }
         }
 
         return response()->json(['status' => 'qrcode_updated']);
