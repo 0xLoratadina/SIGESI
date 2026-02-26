@@ -128,7 +128,6 @@ type Props = {
     onSelectChat: (id: string) => void;
     estadoConexion: 'desconectado' | 'conectando' | 'conectado';
     onEstadoCambiado?: (nuevoEstado: 'desconectado' | 'conectando' | 'conectado') => void;
-    onDatosLimpiados?: () => void;
 };
 
 const filtros: { valor: FiltroEstado; label: string }[] = [
@@ -144,7 +143,6 @@ export default function ChatList({
     onSelectChat,
     estadoConexion,
     onEstadoCambiado,
-    onDatosLimpiados,
 }: Props) {
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
@@ -487,7 +485,6 @@ export default function ChatList({
                     <WhatsAppConnection
                         estadoConexion={estadoConexion}
                         onEstadoCambiado={onEstadoCambiado}
-                        onDatosLimpiados={onDatosLimpiados}
                     />
                 </div>
             </div>

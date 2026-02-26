@@ -1,7 +1,8 @@
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { actualizaciones, estado as estadoRoute } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
+import { Loader2, MessageSquare } from 'lucide-react';
+import { actualizaciones, estado as estadoRoute, sincronizar } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
 import { Card } from '@/components/ui/card';
 import ChatList from '@/components/whatsapp/chat-list';
 import ChatWindow from '@/components/whatsapp/chat-window';
@@ -118,38 +119,48 @@ export default function WhatsAppInbox({
     useEffect(() => {
         conexionRef.current = conexion;
     }, [conexion]);
+    const [sincronizando, setSincronizando] = useState(false);
 
     // Handler para cambio de estado de conexión
     const handleEstadoCambiado = useCallback(
         (nuevoEstado: typeof estadoConexion) => {
-            setConexion(nuevoEstado);
             if (nuevoEstado === 'conectado') {
+                // Mostrar pantalla de sincronización
+                setConexion('conectado');
+                setSincronizando(true);
+
                 // Mover timestamp 2 min atrás para capturar mensajes que llegaron
-                // mientras se escaneaba el QR (polling estaba pausado en estado 'conectando')
                 const dosMinutosAtras = new Date(Date.now() - 2 * 60 * 1000).toISOString();
                 ultimoTimestamp.current = dosMinutosAtras;
-                // Activar modo rápido para capturar actualizaciones inmediatamente
                 modoRapidoHasta.current = Date.now() + DURACION_RAPIDO;
-                // Reload completo para obtener chats y mensajes frescos de la BD
-                router.reload({ only: ['chats', 'mensajes', 'estadoConexion'] });
+
+                // Sincronizar todo desde Evolution API
+                axios.post(sincronizar().url)
+                    .then(() => {
+                        router.reload({
+                            only: ['chats', 'mensajes', 'estadoConexion'],
+                            onFinish: () => setSincronizando(false),
+                        });
+                    })
+                    .catch(() => {
+                        router.reload({
+                            only: ['chats', 'mensajes', 'estadoConexion'],
+                            onFinish: () => setSincronizando(false),
+                        });
+                    });
             } else if (nuevoEstado === 'desconectado') {
-                // Solo desconectar: NO borramos chats/mensajes de la vista
-                // Los datos siguen en la BD y se recargarán al reconectar
+                setConexion('desconectado');
+                setSincronizando(false);
+                setChats([]);
+                setMensajes({});
                 setChatActivo(null);
                 modoRapidoHasta.current = 0;
+            } else {
+                setConexion(nuevoEstado);
             }
         },
         [],
     );
-
-    // Handler para limpiar todos los datos (cambiar de cuenta)
-    const handleDatosLimpiados = useCallback(() => {
-        setConexion('desconectado');
-        setChats([]);
-        setMensajes({});
-        setChatActivo(null);
-        modoRapidoHasta.current = 0;
-    }, []);
 
     // Función para obtener actualizaciones (estable, usa refs)
     const fetchActualizaciones = useCallback(
@@ -234,7 +245,7 @@ export default function WhatsAppInbox({
 
     // Polling adaptativo - estable, no se reinicia con cambios de chatActivo
     useEffect(() => {
-        if (conexion !== 'conectado') return;
+        if (conexion !== 'conectado' || sincronizando) return;
 
         const abortController = new AbortController();
         let isActive = true;
@@ -267,7 +278,7 @@ export default function WhatsAppInbox({
                 clearTimeout(pollingRef.current);
             }
         };
-    }, [conexion, fetchActualizaciones]);
+    }, [conexion, sincronizando, fetchActualizaciones]);
 
     // Verificar periódicamente si la sesión sigue activa (para detectar desconexiones externas)
     useEffect(() => {
@@ -339,6 +350,22 @@ export default function WhatsAppInbox({
         [chatActivo],
     );
 
+    // Handler para cuando se descarga media bajo demanda
+    const handleMediaLoaded = useCallback(
+        (mensajeId: string, mediaUrl: string) => {
+            setMensajes((prev) => {
+                const updated = { ...prev };
+                for (const contactoId of Object.keys(updated)) {
+                    updated[contactoId] = updated[contactoId].map((m) =>
+                        m.id === mensajeId ? { ...m, media_url: mediaUrl } : m,
+                    );
+                }
+                return updated;
+            });
+        },
+        [],
+    );
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="WhatsApp Inbox" />
@@ -347,6 +374,48 @@ export default function WhatsAppInbox({
                 {conexion === 'desconectado' || conexion === 'conectando' ? (
                     <Card className="flex min-h-0 flex-1 overflow-hidden">
                         <WhatsAppSetupPage onEstadoCambiado={handleEstadoCambiado} />
+                    </Card>
+                ) : sincronizando ? (
+                    <Card className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                        <div className="flex flex-col items-center gap-8 px-8">
+                            {/* Icono animado */}
+                            <div className="relative">
+                                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
+                                    <MessageSquare className="h-12 w-12 text-primary" />
+                                </div>
+                                <div className="absolute -right-1 -bottom-1 flex h-8 w-8 items-center justify-center rounded-full bg-background shadow-md">
+                                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                </div>
+                            </div>
+
+                            {/* Texto */}
+                            <div className="flex flex-col items-center gap-2 text-center">
+                                <h2 className="text-xl font-semibold tracking-tight">
+                                    Sincronizando mensajes
+                                </h2>
+                                <p className="max-w-xs text-sm text-muted-foreground">
+                                    Estamos descargando tus chats y mensajes. Esto puede tardar unos momentos.
+                                </p>
+                            </div>
+
+                            {/* Barra de progreso animada */}
+                            <div className="w-72 overflow-hidden rounded-full bg-muted">
+                                <div
+                                    className="h-1.5 rounded-full bg-primary"
+                                    style={{
+                                        animation: 'sync-progress 2.5s ease-in-out infinite',
+                                    }}
+                                />
+                            </div>
+
+                            <style>{`
+                                @keyframes sync-progress {
+                                    0% { width: 0%; margin-left: 0; }
+                                    50% { width: 70%; margin-left: 15%; }
+                                    100% { width: 0%; margin-left: 100%; }
+                                }
+                            `}</style>
+                        </div>
                     </Card>
                 ) : (
                     <Card className="flex min-h-0 flex-1 flex-row overflow-hidden">
@@ -357,7 +426,6 @@ export default function WhatsAppInbox({
                             onSelectChat={setChatActivo}
                             estadoConexion={conexion}
                             onEstadoCambiado={handleEstadoCambiado}
-                            onDatosLimpiados={handleDatosLimpiados}
                         />
 
                         {/* Ventana de chat */}
@@ -368,6 +436,7 @@ export default function WhatsAppInbox({
                             mostrarInfo={mostrarInfo}
                             onMensajeEnviado={handleMensajeEnviado}
                             onCerrarChat={() => setChatActivo(null)}
+                            onMediaLoaded={handleMediaLoaded}
                         />
 
                         {/* Info del contacto */}

@@ -27,6 +27,7 @@ type Props = {
     mostrarInfo: boolean;
     onMensajeEnviado?: (mensaje: Mensaje) => void;
     onCerrarChat?: () => void;
+    onMediaLoaded?: (mensajeId: string, mediaUrl: string) => void;
 };
 
 export default function ChatWindow({
@@ -36,6 +37,7 @@ export default function ChatWindow({
     mostrarInfo,
     onMensajeEnviado,
     onCerrarChat,
+    onMediaLoaded,
 }: Props) {
     const [mensaje, setMensaje] = useState('');
     const [enviando, setEnviando] = useState(false);
@@ -151,9 +153,9 @@ export default function ChatWindow({
             leido: true,
             respuesta_a: respondiendo
                 ? {
-                      contenido: respondiendo.contenido,
-                      tipo: respondiendo.tipo,
-                  }
+                    contenido: respondiendo.contenido,
+                    tipo: respondiendo.tipo,
+                }
                 : null,
         };
 
@@ -220,11 +222,10 @@ export default function ChatWindow({
                             </AvatarFallback>
                         </Avatar>
                         <div
-                            className={`absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-background ${
-                                chat.en_linea
+                            className={`absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full border-2 border-background ${chat.en_linea
                                     ? 'bg-green-500'
                                     : 'bg-muted-foreground/40'
-                            }`}
+                                }`}
                         />
                     </div>
                     <div className="min-w-0">
@@ -308,6 +309,7 @@ export default function ChatWindow({
                                             setMensajeRespondiendo(m);
                                             inputRef.current?.focus();
                                         }}
+                                        onMediaLoaded={onMediaLoaded}
                                     />
                                 </div>
                             ));
@@ -333,11 +335,10 @@ export default function ChatWindow({
                     <div className="flex items-center gap-2">
                         <Reply className="h-4 w-4 shrink-0 text-primary" />
                         <div
-                            className={`min-w-0 flex-1 border-l-2 pl-2 ${
-                                mensajeRespondiendo.tipo === 'enviado'
+                            className={`min-w-0 flex-1 border-l-2 pl-2 ${mensajeRespondiendo.tipo === 'enviado'
                                     ? 'border-blue-500'
                                     : 'border-primary'
-                            }`}
+                                }`}
                         >
                             <p className="text-xs font-medium text-primary">
                                 {mensajeRespondiendo.tipo === 'enviado'

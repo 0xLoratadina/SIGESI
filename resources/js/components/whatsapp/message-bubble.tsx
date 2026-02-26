@@ -1,27 +1,32 @@
+import axios from 'axios';
 import {
     Bot,
     Check,
     CheckCheck,
     Download,
     FileText,
+    Loader2,
     Mic,
     Pause,
     Play,
     Reply,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Mensaje } from '@/pages/admin/whatsapp/index';
+import { descargarMediaMensaje } from '@/actions/App/Http/Controllers/Admin/WhatsAppController';
+import type { Mensaje, MediaTipo } from '@/pages/admin/whatsapp/index';
 
 type Props = {
     mensaje: Mensaje;
     onMediaClick?: (url: string, tipo: 'imagen' | 'video') => void;
     onResponder?: (mensaje: Mensaje) => void;
+    onMediaLoaded?: (mensajeId: string, mediaUrl: string) => void;
 };
 
 export default function MessageBubble({
     mensaje,
     onMediaClick,
     onResponder,
+    onMediaLoaded,
 }: Props) {
     const esEnviado = mensaje.tipo === 'enviado';
     const esBot = mensaje.es_bot === true;
@@ -42,27 +47,24 @@ export default function MessageBubble({
                 </button>
             )}
             <div
-                className={`relative max-w-[70%] rounded-lg px-3 py-2 ${
-                    esEnviado
-                        ? 'border border-blue-200 bg-blue-50 dark:border-blue-700/40 dark:bg-blue-900/30'
-                        : 'bg-muted'
-                }`}
+                className={`relative max-w-[70%] rounded-lg px-3 py-2 ${esEnviado
+                    ? 'border border-blue-200 bg-blue-50 dark:border-blue-700/40 dark:bg-blue-900/30'
+                    : 'bg-muted'
+                    }`}
             >
                 {/* Quote box - mensaje citado */}
                 {mensaje.respuesta_a && (
                     <div
-                        className={`mb-2 rounded-md border-l-2 bg-background/60 p-2 dark:bg-background/30 ${
-                            mensaje.respuesta_a.tipo === 'enviado'
-                                ? 'border-blue-500'
-                                : 'border-primary'
-                        }`}
+                        className={`mb-2 rounded-md border-l-2 bg-background/60 p-2 dark:bg-background/30 ${mensaje.respuesta_a.tipo === 'enviado'
+                            ? 'border-blue-500'
+                            : 'border-primary'
+                            }`}
                     >
                         <p
-                            className={`text-[11px] font-medium ${
-                                mensaje.respuesta_a.tipo === 'enviado'
-                                    ? 'text-blue-600 dark:text-blue-400'
-                                    : 'text-primary'
-                            }`}
+                            className={`text-[11px] font-medium ${mensaje.respuesta_a.tipo === 'enviado'
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-primary'
+                                }`}
                         >
                             {mensaje.respuesta_a.tipo === 'enviado'
                                 ? 'Tú'
@@ -94,11 +96,21 @@ export default function MessageBubble({
                     />
                 )}
 
+                {/* Placeholder para media sin URL (no se pudo descargar) */}
+                {!tieneMedia && mensaje.media_tipo && (
+                    <MediaPlaceholder
+                        tipo={mensaje.media_tipo}
+                        mensajeId={mensaje.id}
+                        onMediaLoaded={(url) => onMediaLoaded?.(mensaje.id, url)}
+                        onMediaClick={onMediaClick}
+                    />
+                )}
+
                 {/* Contenido del mensaje (texto) */}
                 {mensaje.contenido &&
                     !isMediaPlaceholder(mensaje.contenido) && (
                         <p
-                            className={`text-sm break-words whitespace-pre-wrap ${tieneMedia ? 'mt-2' : ''}`}
+                            className={`text-sm break-words whitespace-pre-wrap ${tieneMedia || (!tieneMedia && mensaje.media_tipo) ? 'mt-2' : ''}`}
                         >
                             {mensaje.contenido}
                         </p>
@@ -106,11 +118,10 @@ export default function MessageBubble({
 
                 {/* Hora y estado */}
                 <div
-                    className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
-                        esEnviado
-                            ? 'text-blue-600/70 dark:text-blue-400/70'
-                            : 'text-muted-foreground'
-                    }`}
+                    className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${esEnviado
+                        ? 'text-blue-600/70 dark:text-blue-400/70'
+                        : 'text-muted-foreground'
+                        }`}
                 >
                     <span>{mensaje.hora}</span>
                     {esEnviado &&
@@ -137,6 +148,88 @@ export default function MessageBubble({
 
 function isMediaPlaceholder(contenido: string): boolean {
     return /^\[(Imagen|Video|Audio|Documento|Sticker).*\]$/.test(contenido);
+}
+
+function MediaPlaceholder({
+    tipo,
+    mensajeId,
+    onMediaLoaded,
+    onMediaClick,
+}: {
+    tipo: NonNullable<MediaTipo>;
+    mensajeId: string;
+    onMediaLoaded?: (url: string) => void;
+    onMediaClick?: (url: string, tipo: 'imagen' | 'video') => void;
+}) {
+    const [cargando, setCargando] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+
+    const config = {
+        imagen: { icon: '📷', label: 'Foto' },
+        video: { icon: '🎬', label: 'Video' },
+        audio: { icon: '🎤', label: 'Audio' },
+        documento: { icon: '📄', label: 'Documento' },
+        sticker: { icon: '🏷️', label: 'Sticker' },
+    } as Record<string, { icon: string; label: string }>;
+
+    const { icon, label } = config[tipo ?? ''] ?? { icon: '📎', label: 'Archivo' };
+
+    const handleCargar = async () => {
+        setCargando(true);
+        setError(null);
+        try {
+            const numericId = Number(mensajeId);
+            if (isNaN(numericId)) {
+                setError('ID de mensaje inválido');
+                return;
+            }
+            const route = descargarMediaMensaje(numericId);
+            const res = await axios.post(route.url);
+            if (res.data.media_url) {
+                setMediaUrl(res.data.media_url);
+                onMediaLoaded?.(res.data.media_url);
+            } else if (res.data.error) {
+                setError(res.data.error);
+            }
+        } catch {
+            setError('No se pudo descargar');
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    // Si ya se cargó la media, mostrar el contenido real
+    if (mediaUrl && tipo) {
+        return (
+            <MediaContent
+                url={mediaUrl}
+                tipo={tipo}
+                contenido=""
+                onMediaClick={onMediaClick}
+            />
+        );
+    }
+
+    return (
+        <button
+            onClick={handleCargar}
+            disabled={cargando}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-md bg-background/40 px-3 py-3 transition-colors hover:bg-background/70 disabled:cursor-wait disabled:opacity-70"
+        >
+            <span className="text-lg">{icon}</span>
+            <span className="flex-1 text-left text-xs text-muted-foreground">
+                {cargando ? 'Descargando...' : label}
+            </span>
+            {cargando ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : error ? (
+                <span className="text-[10px] text-destructive">{error}</span>
+            ) : (
+                <Download className="h-4 w-4 text-muted-foreground" />
+            )}
+        </button>
+    );
 }
 
 // ─── Reproductor de audio estilo WhatsApp ───────────────────────────────────

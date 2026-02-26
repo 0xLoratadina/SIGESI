@@ -494,12 +494,12 @@ class WhatsAppController extends Controller
                 continue;
             }
 
-            // Solo descargar media para mensajes recientes (< 1 hora)
+            // Solo descargar media para mensajes recientes (< 24 horas)
             $mediaUrl = null;
             $enviadoAt = isset($msg['messageTimestamp'])
                 ? \Carbon\Carbon::createFromTimestamp($msg['messageTimestamp'])
                 : now();
-            $esReciente = $enviadoAt->gt(now()->subHour());
+            $esReciente = $enviadoAt->gt(now()->subHours(24));
 
             if ($whatsappMessageId && $mediaTipo && $mediaTipo !== 'texto' && $esReciente) {
                 $mediaUrl = $this->descargarMedia($whatsappMessageId, $mediaTipo, $message);
@@ -850,5 +850,29 @@ class WhatsAppController extends Controller
         }
 
         return 'data:image/png;base64,'.$base64;
+    }
+
+    /**
+     * Descargar media de un mensaje bajo demanda.
+     */
+    public function descargarMediaMensaje(WhatsAppMensaje $mensaje): JsonResponse
+    {
+        if ($mensaje->media_url) {
+            return response()->json(['media_url' => $mensaje->media_url]);
+        }
+
+        if (!$mensaje->whatsapp_id || !$mensaje->media_tipo) {
+            return response()->json(['error' => 'Este mensaje no tiene media'], 422);
+        }
+
+        $mediaUrl = $this->descargarMedia($mensaje->whatsapp_id, $mensaje->media_tipo, []);
+
+        if (!$mediaUrl) {
+            return response()->json(['error' => 'No se pudo descargar la media. Es posible que el mensaje sea muy antiguo.'], 404);
+        }
+
+        $mensaje->update(['media_url' => $mediaUrl]);
+
+        return response()->json(['media_url' => $mediaUrl]);
     }
 }

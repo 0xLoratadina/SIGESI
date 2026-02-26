@@ -77,6 +77,7 @@ Route::middleware(['auth', 'verified', 'onboarding', 'admin'])->prefix('admin')-
     Route::post('whatsapp/sincronizar', [WhatsAppController::class, 'sincronizar'])->name('admin.whatsapp.sincronizar');
     Route::post('whatsapp/limpiar-datos', [WhatsAppController::class, 'limpiarDatos'])->name('admin.whatsapp.limpiar-datos');
     Route::post('whatsapp/nuevo-chat', [WhatsAppController::class, 'nuevoChat'])->name('admin.whatsapp.nuevo-chat');
+    Route::post('whatsapp/mensajes/{mensaje}/descargar-media', [WhatsAppController::class, 'descargarMediaMensaje'])->name('admin.whatsapp.descargar-media');
 });
 
 require __DIR__.'/settings.php';

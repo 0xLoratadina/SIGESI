@@ -3,7 +3,6 @@ import { Loader2 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     conectar,
-    desconectar,
     estado as estadoRoute,
     limpiarDatos as limpiarDatosRoute,
     qrcode as qrcodeRoute,
@@ -24,7 +23,6 @@ type EstadoConexion = 'desconectado' | 'conectando' | 'conectado';
 type Props = {
     estadoConexion: EstadoConexion;
     onEstadoCambiado?: (nuevoEstado: EstadoConexion) => void;
-    onDatosLimpiados?: () => void;
 };
 
 const POLLING_ESTADO_INTERVAL = 3000;
@@ -32,14 +30,12 @@ const POLLING_ESTADO_INTERVAL = 3000;
 export default function WhatsAppConnection({
     estadoConexion: estadoInicial,
     onEstadoCambiado,
-    onDatosLimpiados,
 }: Props) {
     const [estado, setEstado] = useState<EstadoConexion>(estadoInicial);
     const [dialogAbierto, setDialogAbierto] = useState(false);
     const [qrCodeBase64, setQrCodeBase64] = useState<string | null>(null);
     const [cargando, setCargando] = useState(false);
     const [desconectando, setDesconectando] = useState(false);
-    const [limpiando, setLimpiando] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -126,7 +122,7 @@ export default function WhatsAppConnection({
         setDesconectando(true);
         setError(null);
         try {
-            await axios.post(desconectar().url);
+            await axios.post(limpiarDatosRoute().url);
             setEstado('desconectado');
             setQrCodeBase64(null);
             detenerPolling();
@@ -135,23 +131,6 @@ export default function WhatsAppConnection({
             setError('Error al desconectar');
         } finally {
             setDesconectando(false);
-        }
-    };
-
-    const handleLimpiarDatos = async () => {
-        setLimpiando(true);
-        setError(null);
-        try {
-            await axios.post(limpiarDatosRoute().url);
-            setEstado('desconectado');
-            setQrCodeBase64(null);
-            detenerPolling();
-            // Llamar callback específico de limpieza (borra chats/mensajes del frontend)
-            onDatosLimpiados?.();
-        } catch {
-            setError('Error al limpiar datos');
-        } finally {
-            setLimpiando(false);
         }
     };
 
@@ -181,10 +160,10 @@ export default function WhatsAppConnection({
                 <button className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent">
                     <div
                         className={`h-2 w-2 rounded-full ${estado === 'conectado'
-                                ? 'bg-green-500'
-                                : estado === 'conectando'
-                                    ? 'animate-pulse bg-yellow-500'
-                                    : 'bg-red-500'
+                            ? 'bg-green-500'
+                            : estado === 'conectando'
+                                ? 'animate-pulse bg-yellow-500'
+                                : 'bg-red-500'
                             }`}
                     />
                     <span className="text-xs text-muted-foreground">
@@ -289,22 +268,15 @@ export default function WhatsAppConnection({
                         {error && (
                             <p className="text-sm text-destructive">{error}</p>
                         )}
-                        <DialogFooter className="flex-col items-end gap-2 sm:flex-col">
+                        <DialogFooter>
                             <Button
                                 variant="outline"
                                 onClick={handleDesconectar}
-                                disabled={desconectando || limpiando}
+                                disabled={desconectando}
                             >
                                 {desconectando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {desconectando ? 'Cerrando sesion...' : 'Cerrar sesion'}
                             </Button>
-                            <button
-                                onClick={handleLimpiarDatos}
-                                disabled={limpiando || desconectando}
-                                className="text-xs text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-50"
-                            >
-                                {limpiando ? 'Limpiando...' : 'Cambiar de cuenta (limpiar todos los datos)'}
-                            </button>
                         </DialogFooter>
                     </>
                 )}
