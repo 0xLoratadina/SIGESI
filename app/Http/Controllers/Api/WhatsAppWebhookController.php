@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\TipoMensajeWhatsApp;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessWhatsAppMessage;
 use App\Models\WhatsAppContacto;
 use App\Models\WhatsAppMensaje;
 use App\Services\WhatsApp\EvolutionApiService;
@@ -16,7 +17,7 @@ use Illuminate\Support\Str;
 class WhatsAppWebhookController extends Controller
 {
     public function __construct(
-        private EvolutionApiService $evolutionApi
+        private EvolutionApiService $evolutionApi,
     ) {}
 
     /**
@@ -66,6 +67,8 @@ class WhatsAppWebhookController extends Controller
         $message = $data['data'] ?? [];
 
         if (empty($message)) {
+            Log::channel('whatsapp')->warning('handleMessageUpsert: payload sin data');
+
             return response()->json(['status' => 'no_data']);
         }
 
@@ -76,13 +79,25 @@ class WhatsAppWebhookController extends Controller
         $remoteJid = $key['remoteJid'] ?? '';
         $messageId = $key['id'] ?? null;
 
+        Log::channel('whatsapp')->info('handleMessageUpsert: procesando', [
+            'messageId' => $messageId,
+            'remoteJid' => $remoteJid,
+            'fromMe' => $isFromMe,
+            'hasMessage' => ! empty($messageContent),
+            'messageKeys' => array_keys($messageContent),
+        ]);
+
         // Saltar grupos
         if (str_contains($remoteJid, '@g.us') || empty($remoteJid)) {
+            Log::channel('whatsapp')->info('handleMessageUpsert: ignorado (grupo o vacío)', ['remoteJid' => $remoteJid]);
+
             return response()->json(['status' => 'ignored_group']);
         }
 
         // Verificar si el mensaje ya existe
         if ($messageId && WhatsAppMensaje::where('whatsapp_id', $messageId)->exists()) {
+            Log::channel('whatsapp')->info('handleMessageUpsert: mensaje duplicado', ['messageId' => $messageId]);
+
             return response()->json(['status' => 'message_exists']);
         }
 
@@ -117,7 +132,7 @@ class WhatsAppWebhookController extends Controller
             $mediaUrl = $this->descargarYGuardarMedia($messageId, $mediaTipo, $messageContent);
         }
 
-        WhatsAppMensaje::create([
+        $mensajeGuardado = WhatsAppMensaje::create([
             'contacto_id' => $contacto->id,
             'whatsapp_id' => $messageId,
             'tipo' => $isFromMe ? TipoMensajeWhatsApp::Enviado : TipoMensajeWhatsApp::Recibido,
@@ -129,6 +144,9 @@ class WhatsAppWebhookController extends Controller
             'es_bot' => false,
         ]);
 
+        // Señalizar al polling que hay datos nuevos (fast-path via caché)
+        cache()->put('whatsapp_ultimo_msg_id', $mensajeGuardado->id, 3600);
+
         Log::channel('whatsapp')->info('Mensaje guardado via webhook', [
             'contacto_id' => $contacto->id,
             'contacto_nombre' => $contacto->nombre,
@@ -136,6 +154,11 @@ class WhatsAppWebhookController extends Controller
             'es_lid' => str_ends_with($remoteJid, '@lid'),
             'tipo' => $isFromMe ? 'enviado' : 'recibido',
         ]);
+
+        if (! $isFromMe) {
+            cache()->put("bot_procesado_{$mensajeGuardado->id}", true, 300);
+            ProcessWhatsAppMessage::dispatch($contacto->id, $mensajeGuardado->id);
+        }
 
         return response()->json(['status' => 'message_saved']);
     }

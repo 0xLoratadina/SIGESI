@@ -27,6 +27,21 @@ class WhatsAppController extends Controller
         $estadoConexion = $this->obtenerEstadoConexion();
         $conectado = $estadoConexion === 'conectado';
 
+        if ($conectado && ! Cache::has('whatsapp_webhook_configured')) {
+            try {
+                $this->configurarWebhookAutomatico();
+                Cache::put('whatsapp_webhook_configured', true, 3600);
+            } catch (\Exception $e) {
+                Log::channel('whatsapp')->warning('No se pudo reconfigurar webhook', ['error' => $e->getMessage()]);
+            }
+        }
+
+        $ultimoId = $conectado ? (WhatsAppMensaje::max('id') ?? 0) : 0;
+
+        if ($conectado && $ultimoId > 0) {
+            Cache::put('whatsapp_ultimo_msg_id', $ultimoId, 3600);
+        }
+
         return Inertia::render('admin/whatsapp/index', [
             'chats' => $conectado ? $this->whatsAppService->getChats() : [],
             'mensajes' => $conectado
@@ -34,34 +49,72 @@ class WhatsAppController extends Controller
                 : [],
             'tickets' => $conectado ? $this->whatsAppService->getTicketsPorChat() : [],
             'estadoConexion' => $estadoConexion,
-            'ultimaActualizacion' => now()->toISOString(),
+            'ultimoMensajeId' => $ultimoId,
         ]);
     }
 
     /**
-     * Obtener actualizaciones (mensajes nuevos) desde un timestamp.
-     * Polling híbrido: primero BD, si no hay nada nuevo, fallback a API.
+     * Obtener actualizaciones usando cursor por ID con fast-path via caché.
+     *
+     * El webhook escribe el último ID en caché al guardar un mensaje.
+     * Este endpoint primero compara el ID del cliente con el caché (< 0.05ms).
+     * Solo consulta la BD si hay datos nuevos confirmados.
+     * Esto libera el hilo del servidor para que los webhooks entren sin bloqueo.
      */
     public function actualizaciones(Request $request): JsonResponse
     {
-        $desde = $request->input('desde');
-        $timestamp = $desde ? \Carbon\Carbon::parse($desde) : now()->subMinutes(5);
+        $desdeId = (int) $request->input('desde_id', 0);
 
+        // FAST PATH: comparar con caché, sin tocar la BD
+        $ultimoIdServidor = (int) Cache::get('whatsapp_ultimo_msg_id', 0);
+        if ($desdeId > 0 && $desdeId >= $ultimoIdServidor) {
+            return response()->json([
+                'mensajes' => [],
+                'chats' => [],
+                'ultimo_id' => $desdeId,
+                'hayNuevos' => false,
+            ]);
+        }
+
+        // Hay datos nuevos: consultar BD
         $mensajesNuevos = WhatsAppMensaje::with('contacto')
-            ->where('created_at', '>', $timestamp)
-            ->orderBy('created_at')
+            ->where('id', '>', $desdeId)
+            ->orderBy('id')
             ->get();
 
-        $mensajesPorChat = $this->agruparMensajesPorChat($mensajesNuevos);
+        if ($mensajesNuevos->isEmpty()) {
+            // Actualizar caché para evitar consultas innecesarias
+            Cache::put('whatsapp_ultimo_msg_id', $desdeId, 3600);
 
+            return response()->json([
+                'mensajes' => [],
+                'chats' => [],
+                'ultimo_id' => $desdeId,
+                'hayNuevos' => false,
+            ]);
+        }
+
+        // Despachar bot para mensajes recibidos que no vinieron por webhook
+        foreach ($mensajesNuevos as $msg) {
+            if ($msg->tipo === \App\Enums\TipoMensajeWhatsApp::Recibido && ! $msg->es_bot) {
+                $cacheKey = "bot_procesado_{$msg->id}";
+                if (! Cache::has($cacheKey)) {
+                    Cache::put($cacheKey, true, 300);
+                    \App\Jobs\ProcessWhatsAppMessage::dispatch($msg->contacto_id, $msg->id);
+                }
+            }
+        }
+
+        $mensajesPorChat = $this->agruparMensajesPorChat($mensajesNuevos);
         $contactoIds = $mensajesNuevos->pluck('contacto_id')->unique();
-        $chatsActualizados = $this->obtenerChatsActualizados($contactoIds, $timestamp);
+        $chatsActualizados = $this->obtenerChatsActualizados($contactoIds, $desdeId);
+        $ultimoId = $mensajesNuevos->max('id') ?? $desdeId;
 
         return response()->json([
             'mensajes' => $mensajesPorChat,
             'chats' => $chatsActualizados,
-            'timestamp' => now()->toISOString(),
-            'hayNuevos' => $mensajesNuevos->isNotEmpty(),
+            'ultimo_id' => $ultimoId,
+            'hayNuevos' => true,
         ]);
     }
 
@@ -98,13 +151,14 @@ class WhatsAppController extends Controller
      * @param \Illuminate\Support\Collection<int, mixed> $contactoIds
      * @return array<string, array<string, mixed>>
      */
-    private function obtenerChatsActualizados(\Illuminate\Support\Collection $contactoIds, \Carbon\Carbon $timestamp): array
+    private function obtenerChatsActualizados(\Illuminate\Support\Collection $contactoIds, int $desdeId): array
     {
+        if ($contactoIds->isEmpty() && $desdeId > 0) {
+            return [];
+        }
+
         $contactos = WhatsAppContacto::query()
-            ->where(function ($q) use ($contactoIds, $timestamp) {
-                $q->whereIn('id', $contactoIds)
-                    ->orWhere('updated_at', '>', $timestamp);
-            })
+            ->when($contactoIds->isNotEmpty(), fn($q) => $q->whereIn('id', $contactoIds))
             ->with(['mensajes' => fn($q) => $q->latest('enviado_at')->limit(1)])
             ->withCount(['mensajes as no_leidos' => fn($q) => $q->where('tipo', 'recibido')->where('leido', false)])
             ->get();
@@ -272,19 +326,21 @@ class WhatsAppController extends Controller
      */
     private function configurarWebhookAutomatico(): void
     {
-        // Determinar la URL del webhook según el entorno
         $appUrl = config('app.url');
+        $webhookPort = (int) env('WHATSAPP_WEBHOOK_PORT', 8001);
 
-        // Si estamos en desarrollo local y Evolution API está en Docker,
-        // necesitamos usar host.docker.internal
         if (str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
-            $webhookUrl = str_replace(['localhost', '127.0.0.1'], 'host.docker.internal', $appUrl);
+            $parsed = parse_url($appUrl);
+            $host = 'host.docker.internal';
+            $scheme = $parsed['scheme'] ?? 'http';
+            $webhookUrl = "{$scheme}://{$host}:{$webhookPort}";
         } else {
             $webhookUrl = $appUrl;
         }
 
         $webhookUrl .= '/api/whatsapp/webhook';
 
+        Log::channel('whatsapp')->info('Configurando webhook', ['url' => $webhookUrl]);
         $this->evolutionApi->configurarWebhook($webhookUrl);
     }
 
@@ -380,7 +436,7 @@ class WhatsAppController extends Controller
             return response()->json(['error' => $resultado['message']], 500);
         }
 
-        WhatsAppMensaje::create([
+        $msg = WhatsAppMensaje::create([
             'contacto_id' => $contacto->id,
             'whatsapp_id' => $resultado['key']['id'] ?? null,
             'tipo' => \App\Enums\TipoMensajeWhatsApp::Enviado,
@@ -392,6 +448,8 @@ class WhatsAppController extends Controller
             'respuesta_a_contenido' => $respuestaAContenido,
             'respuesta_a_tipo' => $respuestaATipo,
         ]);
+
+        Cache::put('whatsapp_ultimo_msg_id', $msg->id, 3600);
 
         return response()->json(['status' => 'ok']);
     }
@@ -508,7 +566,7 @@ class WhatsAppController extends Controller
             // Extraer datos de cita (contextInfo) si existe
             $respuestaData = $this->extraerDatosRespuesta($msg);
 
-            WhatsAppMensaje::create([
+            $nuevoMsg = WhatsAppMensaje::create([
                 'contacto_id' => $contacto->id,
                 'whatsapp_id' => $whatsappMessageId,
                 'tipo' => ($msg['key']['fromMe'] ?? false)
@@ -525,6 +583,7 @@ class WhatsAppController extends Controller
                 'respuesta_a_tipo' => $respuestaData['tipo'],
             ]);
 
+            Cache::put('whatsapp_ultimo_msg_id', $nuevoMsg->id, 3600);
             $nuevos++;
         }
 

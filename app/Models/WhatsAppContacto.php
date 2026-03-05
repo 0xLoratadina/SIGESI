@@ -52,6 +52,24 @@ class WhatsAppContacto extends Model
         // 1. Buscar por whatsapp_id exacto
         $contacto = self::where('whatsapp_id', $remoteJid)->first();
         if ($contacto) {
+            // Si es LID y aún no tiene teléfono real, intentar vincular con contacto de teléfono
+            if ($esLid && ! str_contains($contacto->whatsapp_id, '@s.whatsapp.net')) {
+                $nombre = $atributos['nombre'] ?? null;
+                if ($nombre && $nombre !== $remoteJid) {
+                    $contactoReal = self::where('nombre', $nombre)
+                        ->where('whatsapp_id', 'LIKE', '%@s.whatsapp.net')
+                        ->where('id', '!=', $contacto->id)
+                        ->first();
+
+                    if ($contactoReal) {
+                        // Fusionar: mover mensajes del LID al contacto real
+                        $contactoReal->fusionarDesde($contacto);
+
+                        return $contactoReal;
+                    }
+                }
+            }
+
             return $contacto;
         }
 

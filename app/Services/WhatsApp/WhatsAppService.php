@@ -2,6 +2,8 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Models\Ticket;
+use App\Models\User;
 use App\Models\WhatsAppContacto;
 use App\Models\WhatsAppMensaje;
 
@@ -59,14 +61,72 @@ class WhatsAppService
     }
 
     /**
-     * Obtener tickets asociados a cada chat.
+     * Obtener tickets asociados a cada chat (vinculados por teléfono del contacto → usuario).
      *
      * @return array<string, array<int, array<string, mixed>>>
      */
     public function getTicketsPorChat(): array
     {
-        // TODO: Implementar relacion con tickets reales
-        return [];
+        $contactos = WhatsAppContacto::all();
+        $resultado = [];
+
+        $coloresEstado = [
+            'Abierto' => 'yellow',
+            'Asignado' => 'blue',
+            'EnProgreso' => 'blue',
+            'EnEspera' => 'yellow',
+            'Resuelto' => 'green',
+            'Cerrado' => 'green',
+            'Cancelado' => 'red',
+        ];
+
+        foreach ($contactos as $contacto) {
+            $usuario = $this->buscarUsuarioPorTelefono($contacto->telefono);
+
+            if (! $usuario) {
+                $resultado[(string) $contacto->id] = [];
+
+                continue;
+            }
+
+            $tickets = Ticket::where('solicitante_id', $usuario->id)
+                ->latest()
+                ->limit(10)
+                ->get(['id', 'numero', 'titulo', 'estado']);
+
+            $resultado[(string) $contacto->id] = $tickets->map(fn (Ticket $t) => [
+                'id' => $t->id,
+                'numero' => $t->numero,
+                'titulo' => $t->titulo,
+                'estado' => $t->estado->etiqueta(),
+                'color_estado' => $coloresEstado[$t->estado->value] ?? 'gray',
+            ])->all();
+        }
+
+        return $resultado;
+    }
+
+    private function buscarUsuarioPorTelefono(string $telefono): ?User
+    {
+        $limpio = preg_replace('/[^0-9]/', '', $telefono);
+
+        return User::where('activo', true)
+            ->where(function ($q) use ($telefono, $limpio) {
+                $q->where('telefono', $telefono)
+                    ->orWhere('telefono', $limpio)
+                    ->orWhere('whatsapp_telefono', $telefono)
+                    ->orWhere('whatsapp_telefono', $limpio);
+
+                if (str_starts_with($limpio, '52') && strlen($limpio) > 10) {
+                    $q->orWhere('telefono', substr($limpio, 2))
+                        ->orWhere('whatsapp_telefono', substr($limpio, 2));
+                }
+                if (str_starts_with($limpio, '521') && strlen($limpio) > 10) {
+                    $q->orWhere('telefono', substr($limpio, 3))
+                        ->orWhere('whatsapp_telefono', substr($limpio, 3));
+                }
+            })
+            ->first();
     }
 
     /**

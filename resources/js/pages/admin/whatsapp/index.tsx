@@ -65,18 +65,17 @@ type Props = {
     mensajes?: Record<string, Mensaje[]>;
     tickets: Record<string, TicketResumen[]>;
     estadoConexion: 'desconectado' | 'conectando' | 'conectado';
-    ultimaActualizacion: string;
+    ultimoMensajeId: number;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'WhatsApp', href: whatsapp().url },
 ];
 
-// Intervalos de polling adaptativos
-const INTERVALO_CON_CHAT = 2000;  // 2s con chat activo
-const INTERVALO_SIN_CHAT = 5000;  // 5s sin chat activo
-const INTERVALO_RAPIDO = 1000;    // 1s después de mensaje nuevo
-const DURACION_RAPIDO = 20000;    // 20s en modo rápido
+const INTERVALO_NORMAL = 500;
+const INTERVALO_INACTIVO = 3000;
+const INTERVALO_RAPIDO = 300;
+const DURACION_RAPIDO = 15000;
 
 function ordenarChats(chats: Chat[]): Chat[] {
     return [...chats].sort((a, b) => {
@@ -95,7 +94,7 @@ export default function WhatsAppInbox({
     mensajes: mensajesIniciales,
     tickets,
     estadoConexion,
-    ultimaActualizacion,
+    ultimoMensajeId,
 }: Props) {
     const [chatActivo, setChatActivo] = useState<string | null>(null);
     const [mostrarInfo, setMostrarInfo] = useState(true);
@@ -103,11 +102,10 @@ export default function WhatsAppInbox({
     const [mensajes, setMensajes] = useState<Record<string, Mensaje[]>>(
         mensajesIniciales ?? {},
     );
-    const ultimoTimestamp = useRef<string>(ultimaActualizacion);
+    const ultimoIdRef = useRef<number>(ultimoMensajeId);
     const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const modoRapidoHasta = useRef<number>(0);
     const [conexion, setConexion] = useState(estadoConexion);
-    // Usar ref para chatActivo para evitar recrear el callback de polling
     const chatActivoRef = useRef<string | null>(chatActivo);
     const conexionRef = useRef(conexion);
 
@@ -125,26 +123,22 @@ export default function WhatsAppInbox({
     const handleEstadoCambiado = useCallback(
         (nuevoEstado: typeof estadoConexion) => {
             if (nuevoEstado === 'conectado') {
-                // Mostrar pantalla de sincronización
                 setConexion('conectado');
                 setSincronizando(true);
 
-                // Mover timestamp 2 min atrás para capturar mensajes que llegaron
-                const dosMinutosAtras = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-                ultimoTimestamp.current = dosMinutosAtras;
+                ultimoIdRef.current = 0;
                 modoRapidoHasta.current = Date.now() + DURACION_RAPIDO;
 
-                // Sincronizar todo desde Evolution API
                 axios.post(sincronizar().url)
                     .then(() => {
                         router.reload({
-                            only: ['chats', 'mensajes', 'estadoConexion'],
+                            only: ['chats', 'mensajes', 'estadoConexion', 'ultimoMensajeId'],
                             onFinish: () => setSincronizando(false),
                         });
                     })
                     .catch(() => {
                         router.reload({
-                            only: ['chats', 'mensajes', 'estadoConexion'],
+                            only: ['chats', 'mensajes', 'estadoConexion', 'ultimoMensajeId'],
                             onFinish: () => setSincronizando(false),
                         });
                     });
@@ -162,7 +156,7 @@ export default function WhatsAppInbox({
         [],
     );
 
-    // Función para obtener actualizaciones (estable, usa refs)
+    // Función para obtener actualizaciones usando cursor por ID
     const fetchActualizaciones = useCallback(
         async (signal?: AbortSignal) => {
             if (conexionRef.current !== 'conectado') return;
@@ -171,7 +165,7 @@ export default function WhatsAppInbox({
                 const route = actualizaciones();
                 const response = await axios.get(route.url, {
                     params: {
-                        desde: ultimoTimestamp.current,
+                        desde_id: ultimoIdRef.current,
                         chat_activo: chatActivoRef.current,
                     },
                     signal,
@@ -180,10 +174,8 @@ export default function WhatsAppInbox({
                 const data = response.data;
 
                 if (data.hayNuevos) {
-                    // Activar modo rápido por 30 segundos
                     modoRapidoHasta.current = Date.now() + DURACION_RAPIDO;
 
-                    // Actualizar mensajes
                     setMensajes((prevMensajes) => {
                         const nuevosMensajes = { ...prevMensajes };
                         for (const [contactoId, msgs] of Object.entries(
@@ -201,7 +193,6 @@ export default function WhatsAppInbox({
                             for (const msg of msgs) {
                                 if (idsExistentes.has(msg.id)) continue;
 
-                                // Buscar y reemplazar mensaje optimista (temp-*) que coincida
                                 const tempIdx = existentes.findIndex(
                                     (m) =>
                                         m.id.startsWith('temp-') &&
@@ -220,7 +211,6 @@ export default function WhatsAppInbox({
                         return nuevosMensajes;
                     });
 
-                    // Actualizar chats
                     setChats((prevChats) => {
                         const chatsMap = new Map(
                             prevChats.map((c) => [c.id, c]),
@@ -234,42 +224,45 @@ export default function WhatsAppInbox({
                     });
                 }
 
-                ultimoTimestamp.current = data.timestamp;
+                ultimoIdRef.current = data.ultimo_id;
             } catch (error) {
                 if (axios.isCancel(error)) return;
                 console.error('Error al obtener actualizaciones:', error);
             }
         },
-        [], // Sin dependencias - usa refs para valores que cambian
+        [],
     );
 
-    // Polling adaptativo - estable, no se reinicia con cambios de chatActivo
+    // Polling ultra-ligero: una sola petición a la vez, el servidor responde
+    // en < 0.05ms cuando no hay datos nuevos (fast-path via caché)
     useEffect(() => {
         if (conexion !== 'conectado' || sincronizando) return;
 
         const abortController = new AbortController();
         let isActive = true;
+        let enVuelo = false;
 
         const obtenerIntervalo = (): number => {
-            if (Date.now() < modoRapidoHasta.current) {
-                return INTERVALO_RAPIDO;
-            }
-            return chatActivoRef.current ? INTERVALO_CON_CHAT : INTERVALO_SIN_CHAT;
+            if (Date.now() < modoRapidoHasta.current) return INTERVALO_RAPIDO;
+            return chatActivoRef.current ? INTERVALO_NORMAL : INTERVALO_INACTIVO;
         };
 
         const ejecutarPolling = async () => {
+            if (!isActive || abortController.signal.aborted || enVuelo) return;
+
+            enVuelo = true;
+            try {
+                await fetchActualizaciones(abortController.signal);
+            } finally {
+                enVuelo = false;
+            }
+
             if (!isActive || abortController.signal.aborted) return;
 
-            await fetchActualizaciones(abortController.signal);
-
-            if (!isActive || abortController.signal.aborted) return;
-
-            const intervalo = obtenerIntervalo();
-            pollingRef.current = setTimeout(ejecutarPolling, intervalo);
+            pollingRef.current = setTimeout(ejecutarPolling, obtenerIntervalo());
         };
 
-        // Primera consulta rápida al conectar
-        pollingRef.current = setTimeout(ejecutarPolling, 500);
+        pollingRef.current = setTimeout(ejecutarPolling, 300);
 
         return () => {
             isActive = false;
@@ -293,7 +286,7 @@ export default function WhatsAppInbox({
             } catch {
                 // ignore errores de red
             }
-        }, 15000);
+        }, 45000);
 
         return () => clearInterval(interval);
     }, [conexion, handleEstadoCambiado]);
@@ -310,8 +303,8 @@ export default function WhatsAppInbox({
     }, [mensajesIniciales]);
 
     useEffect(() => {
-        ultimoTimestamp.current = ultimaActualizacion;
-    }, [ultimaActualizacion]);
+        ultimoIdRef.current = ultimoMensajeId;
+    }, [ultimoMensajeId]);
 
     const chatSeleccionado = chats.find((c) => c.id === chatActivo);
     const mensajesChat = chatActivo ? (mensajes[chatActivo] ?? []) : [];

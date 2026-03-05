@@ -409,8 +409,15 @@ class EvolutionApiService
                 'base64' => true,
                 'events' => [
                     'MESSAGES_UPSERT',
+                    'MESSAGES_UPDATE',
+                    'MESSAGES_SET',
                     'CONNECTION_UPDATE',
                     'QRCODE_UPDATED',
+                    'CHATS_UPDATE',
+                    'CHATS_SET',
+                    'CONTACTS_UPDATE',
+                    'CONTACTS_UPSERT',
+                    'PRESENCE_UPDATE',
                 ],
             ],
         ]);

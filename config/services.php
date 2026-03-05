@@ -41,4 +41,9 @@ return [
         'instance_name' => env('EVOLUTION_INSTANCE_NAME', 'sigesi'),
     ],
 
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY', ''),
+        'model' => env('GROQ_MODEL', 'llama-3.1-8b-instant'),
+    ],
+
 ];
